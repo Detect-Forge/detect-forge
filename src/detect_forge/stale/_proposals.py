@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 
 import openai
+import yaml
 from jinja2 import Environment, PackageLoader
 
 from .models import DetectionRule, DiffProposal
@@ -152,12 +153,6 @@ def validate_proposed_rule(proposed_rule: str, original_format: str) -> bool:
 
 
 def _validate_sigma(yaml_text: str) -> bool:
-    try:
-        import yaml
-    except ImportError:
-        log.debug("PyYAML not available for Sigma validation")
-        return False
-
     try:
         raw = yaml.safe_load(yaml_text)
     except yaml.YAMLError as exc:

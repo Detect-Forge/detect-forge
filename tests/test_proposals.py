@@ -212,6 +212,20 @@ def test_validate_sigma_proposal_rejects_yaml_without_title() -> None:
     assert validate_proposed_rule(no_title, "sigma") is False
 
 
+def test_validate_sigma_proposal_rejects_when_pysigma_fails() -> None:
+    """A rule passes PyYAML and has a title, but pySigma's schema rejects it.
+
+    Verified: rejected by pySigma (missing logsource), not by the earlier
+    YAML-parse or title/isinstance shape checks.
+    """
+    from detect_forge.stale._proposals import validate_proposed_rule
+
+    # Has title (passes minimum-shape check) but no logsource/detection —
+    # pySigma rejects.
+    incomplete_sigma = "title: Incomplete Rule\n"
+    assert validate_proposed_rule(incomplete_sigma, "sigma") is False
+
+
 def test_validate_elastic_proposal_accepts_valid_toml() -> None:
     from detect_forge.stale._proposals import validate_proposed_rule
 
