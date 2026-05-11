@@ -30,6 +30,14 @@ from ..settings import Settings
     show_default=True,
     help="ATT&CK domain to fetch",
 )
+@click.option(
+    "--semantic-threshold",
+    type=float,
+    default=0.65,
+    show_default=True,
+    help="Cosine similarity threshold for the semantic alignment check; "
+         "rule x technique pairs below this value are flagged.",
+)
 @click.pass_context
 def stale_cmd(
     ctx: click.Context,
@@ -39,6 +47,7 @@ def stale_cmd(
     min_severity: str,
     no_cache: bool,
     domain: str,
+    semantic_threshold: float,
 ) -> None:
     """Score detection rules for ATT&CK technique staleness."""
     from . import reporter, scan
@@ -59,6 +68,7 @@ def stale_cmd(
             cache_dir=cfg.cache_dir,
             cache_ttl_hours=cfg.cache_ttl_hours,
             no_cache=effective_no_cache,
+            semantic_threshold=semantic_threshold,
         )
         progress.remove_task(t)
 

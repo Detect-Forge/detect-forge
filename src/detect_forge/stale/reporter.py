@@ -41,7 +41,7 @@ def _render_terminal(report: StalenessReport, min_severity: str) -> str:
         file=buf,
         force_terminal=True,
         highlight=False,
-        width=120,
+        width=130,
         theme=theme,
     )
 
@@ -59,11 +59,19 @@ def _render_terminal(report: StalenessReport, min_severity: str) -> str:
     )
     console.print(Panel(summary_text, title="Detect-Forge Stale Report", expand=False))
 
+    has_semantic = any(
+        f.kind == "low_alignment"
+        for score in report.scores
+        for f in score.findings
+    )
+
     table = Table(box=box.SIMPLE_HEAVY, show_header=True)
     table.add_column("Severity", width=10)
     table.add_column("Title", max_width=40, no_wrap=True)
     table.add_column("Technique", width=12)
     table.add_column("Days Stale", justify="right", width=11)
+    if has_semantic:
+        table.add_column("Similarity", justify="right", width=10)
     table.add_column("Rule Date", width=11)
     table.add_column("ATT&CK Modified", width=16)
     table.add_column("File", max_width=40, no_wrap=True)
@@ -75,15 +83,24 @@ def _render_terminal(report: StalenessReport, min_severity: str) -> str:
             if _SEVERITY_RANK[finding.severity] < threshold:
                 continue
             sev = finding.severity
-            table.add_row(
+            row = [
                 f"[{sev}]{sev.upper()}[/{sev}]",
                 score.title[:40],
                 finding.technique_id,
                 str(finding.days_stale) if finding.days_stale else "\u2014",
+            ]
+            if has_semantic:
+                row.append(
+                    f"{finding.similarity_score:.2f}"
+                    if finding.similarity_score is not None
+                    else "\u2014"
+                )
+            row.extend([
                 str(finding.rule_effective_date or ""),
                 str(finding.technique_modified.date() if finding.technique_modified else ""),
                 str(score.source_file.name),
-            )
+            ])
+            table.add_row(*row)
 
     console.print(table)
     return buf.getvalue()

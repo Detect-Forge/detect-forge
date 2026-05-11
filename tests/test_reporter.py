@@ -133,3 +133,78 @@ def test_html_renders_unicode_em_dash_not_entity_reference(sample_report) -> Non
     # The current Rule (low severity, days_stale=0, kind=current) should
     # display an em-dash in the Days Stale column.
     assert "—" in out  # U+2014
+
+
+def test_terminal_report_omits_similarity_column_without_semantic_findings(
+    sample_report,
+) -> None:
+    """No low_alignment findings → no Similarity column header."""
+    from detect_forge.stale.reporter import render
+
+    output = render(sample_report, output_format="terminal", min_severity="info")
+    assert "Similarity" not in output
+
+
+def test_terminal_report_shows_similarity_column_with_semantic_findings() -> None:
+    """At least one low_alignment finding → Similarity column appears with the score."""
+    from datetime import UTC, datetime
+    from pathlib import Path
+
+    from detect_forge.stale.models import (
+        ReportSummary,
+        RuleScore,
+        StalenessReport,
+        TechniqueFinding,
+    )
+    from detect_forge.stale.reporter import render
+
+    finding = TechniqueFinding(
+        technique_id="T1059",
+        technique_name="Command and Scripting Interpreter",
+        technique_modified=datetime(2025, 1, 1, tzinfo=UTC),
+        rule_effective_date=None,
+        days_stale=0,
+        severity="medium",
+        kind="low_alignment",
+        similarity_score=0.42,
+    )
+    score = RuleScore(
+        rule_id="r1",
+        title="Misaligned Rule",
+        source_file=Path("/rules/r.yml"),
+        status="stable",
+        findings=[finding],
+        worst_severity="medium",
+        worst_days_stale=0,
+        has_attack_tags=True,
+    )
+    summary = ReportSummary(
+        total_rules=1, rules_with_findings=1,
+        critical=0, high=0, medium=1, low=0,
+        no_attack_tags=0, unknown_techniques=0,
+        deprecated_techniques=0, revoked_techniques=0,
+        generated_at=datetime.now(UTC),
+        attack_domain="enterprise-attack",
+        attack_fetched_at=datetime.now(UTC),
+    )
+    report = StalenessReport(summary=summary, scores=[score])
+
+    output = render(report, output_format="terminal", min_severity="info")
+    assert "Similarity" in output
+    assert "0.42" in output
+
+
+def test_json_output_unconditionally_includes_similarity_score(sample_report) -> None:
+    """JSON serializes similarity_score on every finding (null on non-semantic)."""
+    import json
+
+    from detect_forge.stale.reporter import render
+
+    output = render(sample_report, output_format="json", min_severity="info")
+    data = json.loads(output)
+    # sample_report has no low_alignment findings, but the field must still
+    # appear with null on every finding for forward compatibility.
+    for score in data["scores"]:
+        for finding in score["findings"]:
+            assert "similarity_score" in finding
+            assert finding["similarity_score"] is None

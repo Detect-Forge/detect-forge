@@ -207,3 +207,33 @@ def test_scan_rejects_nonexistent_rule_dir(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(main, ["stale", str(tmp_path / "does-not-exist")])
     assert result.exit_code != 0
+
+
+def test_stale_accepts_semantic_threshold_flag(
+    empty_rule_dir: Path,
+    patched_pipeline: dict[str, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The --semantic-threshold flag must be accepted and pass through to scan()."""
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["stale", str(empty_rule_dir), "--semantic-threshold", "0.50"]
+    )
+    assert result.exit_code == 0, result.stderr
+    # Verify the value flowed through to the underlying score_rules call.
+    kwargs = patched_pipeline["score_rules"].call_args.kwargs
+    assert kwargs.get("semantic_threshold") == 0.50
+
+
+def test_stale_default_semantic_threshold_is_065(
+    empty_rule_dir: Path,
+    patched_pipeline: dict[str, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    runner = CliRunner()
+    result = runner.invoke(main, ["stale", str(empty_rule_dir)])
+    assert result.exit_code == 0, result.stderr
+    kwargs = patched_pipeline["score_rules"].call_args.kwargs
+    assert kwargs.get("semantic_threshold") == 0.65

@@ -42,13 +42,15 @@
 </div>
 <p class="meta">ATT&amp;CK domain: <strong>{{ summary.attack_domain }}</strong> &middot; Fetched: {{ summary.attack_fetched_at.strftime('%Y-%m-%d %H:%M UTC') }} &middot; Generated: {{ summary.generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
 <table id="results">
+{% set has_semantic = scores | selectattr('findings') | sum(start=[], attribute='findings') | selectattr('kind', 'equalto', 'low_alignment') | list | length > 0 %}
 <thead><tr>
   <th onclick="sortTable(0)">Severity</th>
   <th onclick="sortTable(1)">Rule Title</th>
   <th onclick="sortTable(2)">Technique</th>
   <th onclick="sortTable(3)">Days Stale</th>
-  <th onclick="sortTable(4)">Rule Date</th>
-  <th onclick="sortTable(5)">ATT&amp;CK Modified</th>
+  {% if has_semantic %}<th onclick="sortTable(4)">Similarity</th>{% endif %}
+  <th onclick="sortTable({{ 5 if has_semantic else 4 }})">Rule Date</th>
+  <th onclick="sortTable({{ 6 if has_semantic else 5 }})">ATT&amp;CK Modified</th>
   <th>File</th>
 </tr></thead>
 <tbody>
@@ -59,6 +61,7 @@
   <td title="{{ score.title }}">{{ score.title[:60] }}</td>
   <td>{{ finding.technique_id }}{% if finding.technique_name %} &mdash; {{ finding.technique_name[:30] }}{% endif %}</td>
   <td>{{ finding.days_stale or '—' }}</td>
+  {% if has_semantic %}<td>{{ '%.2f' % finding.similarity_score if finding.similarity_score is not none else '—' }}</td>{% endif %}
   <td>{{ finding.rule_effective_date or '—' }}</td>
   <td>{{ finding.technique_modified.date() if finding.technique_modified else '—' }}</td>
   <td title="{{ score.source_file }}">{{ score.source_file.name }}</td>
