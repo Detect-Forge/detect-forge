@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -178,6 +179,8 @@ def score_rules(
     *,
     cache_dir: Path | None = None,
     semantic_threshold: float = SEMANTIC_THRESHOLD_DEFAULT,
+    llm_model: str | None = None,
+    max_proposals: int = 5,
 ) -> StalenessReport:
     """Score rules against an ATT&CK index.
 
@@ -188,6 +191,12 @@ def score_rules(
 
     When ``cache_dir`` is None, semantic scoring is skipped — preserves the
     original timestamp-only behavior for callers that haven't migrated.
+
+    When ``llm_model`` is provided AND ``OPENAI_API_KEY`` is set, the scorer
+    will additionally attempt to generate a diff proposal for every rule with
+    a ``semantic_drift`` finding, up to ``max_proposals`` total per scan. Every
+    attempt counts against the quota, regardless of outcome — so the quota is
+    a hard cost ceiling.
     """
     rule_emb_map: dict[str, list[float]] | None = None  # keyed by str(source_file)
     tech_emb_map: dict[str, list[float]] | None = None  # keyed by technique_id
@@ -274,6 +283,63 @@ def score_rules(
                 semantic_threshold=semantic_threshold,
             )
         )
+
+    # ---- LLM diff proposals (Phase 4) ----
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key and llm_model is not None and max_proposals > 0:
+        from . import _proposals as proposals_mod
+
+        today_str = datetime.now(UTC).date().strftime("%Y/%m/%d")
+        proposals_remaining = max_proposals
+        rule_by_source: dict[str, DetectionRule] = {
+            str(r.source_file): r for r in rules
+        }
+        for score in scores:
+            if proposals_remaining <= 0:
+                break
+            drift_findings = [f for f in score.findings if f.kind == "semantic_drift"]
+            if not drift_findings:
+                continue
+            drift = min(
+                drift_findings,
+                key=lambda f: f.similarity_score if f.similarity_score is not None else 1.0,
+            )
+            rule = rule_by_source.get(str(score.source_file))
+            if rule is None:
+                continue
+            technique = index.techniques.get(drift.technique_id)
+            if technique is None or technique.description is None:
+                continue
+            try:
+                original_text = rule.source_file.read_text(encoding="utf-8")
+            except OSError as exc:
+                log.debug("Cannot read rule file %s for proposal: %s", rule.source_file, exc)
+                continue
+            original_format = (
+                "elastic" if rule.source_file.suffix.lower() == ".toml" else "sigma"
+            )
+            proposal = proposals_mod.generate_proposal(
+                rule=rule,
+                original_rule_text=original_text,
+                original_format=original_format,
+                technique_id=drift.technique_id,
+                technique_name=drift.technique_name or "",
+                technique_description=technique.description,
+                similarity_score=drift.similarity_score or 0.0,
+                threshold=semantic_threshold,
+                llm_model=llm_model,
+                api_key=api_key,
+                today=today_str,
+            )
+            proposals_remaining -= 1  # every attempt counts against the quota
+            if proposal is None:
+                continue
+            if not proposals_mod.validate_proposed_rule(
+                proposal.proposed_rule, original_format
+            ):
+                log.debug("Skipping invalid proposal for %s", rule.source_file)
+                continue
+            score.proposals.append(proposal)
 
     scores.sort(
         key=lambda s: (_SEVERITY_ORDER[s.worst_severity], s.worst_days_stale),

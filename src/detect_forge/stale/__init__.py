@@ -49,6 +49,8 @@ def scan(
     cache_ttl_hours: int = 24,
     no_cache: bool = False,
     semantic_threshold: float = 0.65,
+    llm_model: str | None = None,
+    max_proposals: int = 5,
 ) -> StalenessReport:
     """Run a stale scan and return the structured StalenessReport.
 
@@ -69,6 +71,13 @@ def scan(
         no_cache: If True, bypass the cache and refetch.
         semantic_threshold: Cosine similarity threshold; rule × technique pairs
             below this value emit a ``semantic_drift`` finding. Default ``0.65``.
+        llm_model: If set (e.g. ``"gpt-4o-mini"``) AND ``OPENAI_API_KEY`` is
+            present in the environment, the scorer will request an LLM-generated
+            diff proposal for every rule with a ``semantic_drift`` finding, up
+            to ``max_proposals`` total per scan. Defaults to ``None`` (off).
+        max_proposals: Hard ceiling on proposal attempts per scan. Every attempt
+            (success, refusal, or post-receive validation rejection) consumes
+            one slot. Defaults to ``5``.
 
     Returns:
         A ``StalenessReport`` aggregating per-rule findings.
@@ -84,4 +93,6 @@ def scan(
         index,
         cache_dir=resolved_cache_dir,
         semantic_threshold=semantic_threshold,
+        llm_model=llm_model,
+        max_proposals=max_proposals,
     )

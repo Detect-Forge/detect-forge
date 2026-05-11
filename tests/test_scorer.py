@@ -1,6 +1,7 @@
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from pytest_mock import MockerFixture
 
 from detect_forge.stale.models import (
@@ -328,3 +329,264 @@ def test_score_rules_without_cache_dir_skips_semantic() -> None:
     for s in report.scores:
         for f in s.findings:
             assert f.kind != "semantic_drift"
+
+
+def test_score_rules_generates_proposal_when_key_set_and_semantic_drift(
+    tmp_path: Path, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Semantic drift finding + OPENAI_API_KEY set + quota available -> proposal generated."""
+    from detect_forge.stale.models import AttackTechnique, DiffProposal
+    from detect_forge.stale.scorer import score_rules
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    rule_file = tmp_path / "rule.yml"
+    rule_file.write_text("title: original\n")
+    rule = _make_rule(["T1059"], rule_date=TODAY)
+    rule.description = "Detects nothing."
+    rule.source_file = rule_file
+    tech = AttackTechnique(
+        technique_id="T1059",
+        name="Command and Scripting Interpreter",
+        description="Different topic entirely.",
+        modified=datetime.now(UTC) - timedelta(days=10),
+        is_subtechnique=False,
+        stix_id="attack-pattern--fake-T1059",
+    )
+    index = AttackIndex(techniques={"T1059": tech}, fetched_at=datetime.now(UTC))
+
+    import numpy as np
+
+    def fake_embed(texts):
+        results = []
+        for t in texts:
+            if "Command and Scripting" in t:
+                results.append(np.array([0.0, 1.0]))
+            else:
+                results.append(np.array([1.0, 0.0]))
+        return iter(results)
+
+    mocker.patch(
+        "detect_forge.stale.embeddings.fastembed.TextEmbedding.__init__",
+        return_value=None,
+    )
+    mocker.patch(
+        "detect_forge.stale.embeddings.fastembed.TextEmbedding.embed",
+        side_effect=fake_embed,
+    )
+
+    (tmp_path / "enterprise-attack.json").write_text('{"type":"bundle"}')
+
+    fake_proposal = DiffProposal(
+        proposed_rule="title: rewritten\nid: test\ndetection: {x: 1}\n",
+        explanation="Updated detection logic.",
+        changed_fields=["detection"],
+        confidence=0.80,
+    )
+    mocker.patch(
+        "detect_forge.stale._proposals.generate_proposal",
+        return_value=fake_proposal,
+    )
+    mocker.patch(
+        "detect_forge.stale._proposals.validate_proposed_rule",
+        return_value=True,
+    )
+
+    report = score_rules(
+        [rule], index,
+        cache_dir=tmp_path,
+        semantic_threshold=0.65,
+        llm_model="gpt-4o-mini",
+        max_proposals=5,
+    )
+
+    assert len(report.scores) == 1
+    score = report.scores[0]
+    kinds = {f.kind for f in score.findings}
+    assert "semantic_drift" in kinds
+    assert len(score.proposals) == 1
+    assert score.proposals[0].confidence == 0.80
+
+
+def test_score_rules_skips_proposal_when_api_key_missing(
+    tmp_path: Path, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without OPENAI_API_KEY, no proposal is generated even on semantic_drift."""
+    from detect_forge.stale.models import AttackTechnique
+    from detect_forge.stale.scorer import score_rules
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    rule = _make_rule(["T1059"], rule_date=TODAY)
+    rule.description = "Detects nothing."
+    tech = AttackTechnique(
+        technique_id="T1059",
+        name="Command and Scripting Interpreter",
+        description="Different topic.",
+        modified=datetime.now(UTC) - timedelta(days=10),
+        is_subtechnique=False,
+        stix_id="attack-pattern--fake-T1059",
+    )
+    index = AttackIndex(techniques={"T1059": tech}, fetched_at=datetime.now(UTC))
+
+    import numpy as np
+    mocker.patch(
+        "detect_forge.stale.embeddings.fastembed.TextEmbedding.__init__",
+        return_value=None,
+    )
+    mocker.patch(
+        "detect_forge.stale.embeddings.fastembed.TextEmbedding.embed",
+        side_effect=lambda texts: iter(
+            [np.array([0.0, 1.0]) if "Command" in t else np.array([1.0, 0.0]) for t in texts]
+        ),
+    )
+    (tmp_path / "enterprise-attack.json").write_text('{"type":"bundle"}')
+
+    proposal_mock = mocker.patch(
+        "detect_forge.stale._proposals.generate_proposal",
+        return_value=None,
+    )
+
+    report = score_rules(
+        [rule], index,
+        cache_dir=tmp_path,
+        semantic_threshold=0.65,
+        llm_model="gpt-4o-mini",
+        max_proposals=5,
+    )
+
+    proposal_mock.assert_not_called()
+    assert all(score.proposals == [] for score in report.scores)
+
+
+def test_score_rules_respects_max_proposals_quota(
+    tmp_path: Path, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Once max_proposals proposals have been generated, no more are attempted."""
+    from detect_forge.stale.models import AttackTechnique, DiffProposal
+    from detect_forge.stale.scorer import score_rules
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    rules = []
+    for i in range(3):
+        rf = tmp_path / f"r{i}.yml"
+        rf.write_text("title: original\n")
+        r = _make_rule(["T1059"], rule_date=TODAY)
+        r.description = f"Detects nothing {i}."
+        r.source_file = rf
+        rules.append(r)
+
+    tech = AttackTechnique(
+        technique_id="T1059",
+        name="Command and Scripting Interpreter",
+        description="Different topic.",
+        modified=datetime.now(UTC) - timedelta(days=10),
+        is_subtechnique=False,
+        stix_id="attack-pattern--fake-T1059",
+    )
+    index = AttackIndex(techniques={"T1059": tech}, fetched_at=datetime.now(UTC))
+
+    import numpy as np
+    mocker.patch(
+        "detect_forge.stale.embeddings.fastembed.TextEmbedding.__init__",
+        return_value=None,
+    )
+    mocker.patch(
+        "detect_forge.stale.embeddings.fastembed.TextEmbedding.embed",
+        side_effect=lambda texts: iter(
+            [np.array([0.0, 1.0]) if "Command" in t else np.array([1.0, 0.0]) for t in texts]
+        ),
+    )
+    (tmp_path / "enterprise-attack.json").write_text('{"type":"bundle"}')
+
+    fake_proposal = DiffProposal(
+        proposed_rule="title: rewritten\n",
+        explanation="",
+        changed_fields=[],
+        confidence=0.5,
+    )
+    proposal_mock = mocker.patch(
+        "detect_forge.stale._proposals.generate_proposal",
+        return_value=fake_proposal,
+    )
+    mocker.patch(
+        "detect_forge.stale._proposals.validate_proposed_rule",
+        return_value=True,
+    )
+
+    report = score_rules(
+        rules, index,
+        cache_dir=tmp_path,
+        semantic_threshold=0.65,
+        llm_model="gpt-4o-mini",
+        max_proposals=2,
+    )
+
+    assert proposal_mock.call_count == 2
+    total_proposals = sum(len(s.proposals) for s in report.scores)
+    assert total_proposals == 2
+
+
+def test_score_rules_skips_invalid_proposals(
+    tmp_path: Path, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A proposal that fails validation is NOT attached to the rule score."""
+    from detect_forge.stale.models import AttackTechnique, DiffProposal
+    from detect_forge.stale.scorer import score_rules
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    rule_file = tmp_path / "rule.yml"
+    rule_file.write_text("title: original\n")
+    rule = _make_rule(["T1059"], rule_date=TODAY)
+    rule.description = "Detects nothing."
+    rule.source_file = rule_file
+    tech = AttackTechnique(
+        technique_id="T1059",
+        name="Command and Scripting Interpreter",
+        description="Different topic.",
+        modified=datetime.now(UTC) - timedelta(days=10),
+        is_subtechnique=False,
+        stix_id="attack-pattern--fake-T1059",
+    )
+    index = AttackIndex(techniques={"T1059": tech}, fetched_at=datetime.now(UTC))
+
+    import numpy as np
+    mocker.patch(
+        "detect_forge.stale.embeddings.fastembed.TextEmbedding.__init__",
+        return_value=None,
+    )
+    mocker.patch(
+        "detect_forge.stale.embeddings.fastembed.TextEmbedding.embed",
+        side_effect=lambda texts: iter(
+            [np.array([0.0, 1.0]) if "Command" in t else np.array([1.0, 0.0]) for t in texts]
+        ),
+    )
+    (tmp_path / "enterprise-attack.json").write_text('{"type":"bundle"}')
+
+    fake_proposal = DiffProposal(
+        proposed_rule="this is not valid yaml",
+        explanation="",
+        changed_fields=[],
+        confidence=0.5,
+    )
+    mocker.patch(
+        "detect_forge.stale._proposals.generate_proposal",
+        return_value=fake_proposal,
+    )
+    mocker.patch(
+        "detect_forge.stale._proposals.validate_proposed_rule",
+        return_value=False,
+    )
+
+    report = score_rules(
+        [rule], index,
+        cache_dir=tmp_path,
+        semantic_threshold=0.65,
+        llm_model="gpt-4o-mini",
+        max_proposals=5,
+    )
+
+    score = report.scores[0]
+    assert score.proposals == []
