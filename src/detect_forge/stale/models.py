@@ -34,8 +34,7 @@ class DetectionRule(BaseModel):
     """A parsed detection rule with the fields relevant to staleness scoring.
 
     Common shape for both Sigma (YAML) and Elastic Detection Rules (TOML);
-    populated by the per-format parsers in :mod:`sigma_parser` and
-    :mod:`elastic_parser`.
+    populated by the per-format parsers in this package.
     """
 
     rule_id: str | None = None
