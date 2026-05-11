@@ -1,0 +1,4 @@
+[stale]
+semantic_threshold = 0.50
+llm_model = "gpt-4o"
+max_proposals = 10

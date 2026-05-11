@@ -3,9 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import click
+from click.core import ParameterSource
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from ..common import common_output_options
+from ..config import load_stale_config_or_defaults
 from ..console import err_console
 from ..exit_codes import GATED
 from ..settings import Settings
@@ -53,7 +55,16 @@ def stale_cmd(
     from . import reporter, scan
 
     cfg = Settings()
+    stale_cfg = load_stale_config_or_defaults()
     effective_no_cache = no_cache or cfg.no_cache
+
+    # Threshold precedence: env > CLI explicit > file > default.
+    # The file value (or built-in default) is the starting point.
+    effective_threshold = stale_cfg.semantic_threshold
+    if ctx.get_parameter_source("semantic_threshold") == ParameterSource.COMMANDLINE:
+        effective_threshold = semantic_threshold
+    if cfg.semantic_threshold is not None:
+        effective_threshold = cfg.semantic_threshold
 
     with Progress(
         SpinnerColumn(),
@@ -68,7 +79,7 @@ def stale_cmd(
             cache_dir=cfg.cache_dir,
             cache_ttl_hours=cfg.cache_ttl_hours,
             no_cache=effective_no_cache,
-            semantic_threshold=semantic_threshold,
+            semantic_threshold=effective_threshold,
         )
         progress.remove_task(t)
 

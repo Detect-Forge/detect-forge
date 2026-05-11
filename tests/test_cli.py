@@ -237,3 +237,71 @@ def test_stale_default_semantic_threshold_is_065(
     assert result.exit_code == 0, result.stderr
     kwargs = patched_pipeline["score_rules"].call_args.kwargs
     assert kwargs.get("semantic_threshold") == 0.65
+
+
+def test_cli_threshold_precedence_uses_config_file_value(
+    empty_rule_dir: Path,
+    patched_pipeline: dict[str, MagicMock],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When .detect-forge.toml has a threshold and no CLI flag/env override,
+    the file value flows through to score_rules."""
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    monkeypatch.delenv("DETECT_FORGE_SEMANTIC_THRESHOLD", raising=False)
+
+    cfg = tmp_path / ".detect-forge.toml"
+    cfg.write_text("[stale]\nsemantic_threshold = 0.42\n")
+    monkeypatch.chdir(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["stale", str(empty_rule_dir)])
+    assert result.exit_code == 0, result.stderr
+    kwargs = patched_pipeline["score_rules"].call_args.kwargs
+    assert kwargs.get("semantic_threshold") == 0.42
+
+
+def test_cli_threshold_precedence_cli_overrides_file(
+    empty_rule_dir: Path,
+    patched_pipeline: dict[str, MagicMock],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CLI --semantic-threshold overrides the file value."""
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    monkeypatch.delenv("DETECT_FORGE_SEMANTIC_THRESHOLD", raising=False)
+
+    cfg = tmp_path / ".detect-forge.toml"
+    cfg.write_text("[stale]\nsemantic_threshold = 0.42\n")
+    monkeypatch.chdir(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["stale", str(empty_rule_dir), "--semantic-threshold", "0.30"]
+    )
+    assert result.exit_code == 0, result.stderr
+    kwargs = patched_pipeline["score_rules"].call_args.kwargs
+    assert kwargs.get("semantic_threshold") == 0.30
+
+
+def test_cli_threshold_precedence_env_overrides_cli(
+    empty_rule_dir: Path,
+    patched_pipeline: dict[str, MagicMock],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Env var DETECT_FORGE_SEMANTIC_THRESHOLD overrides both file and CLI."""
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    monkeypatch.setenv("DETECT_FORGE_SEMANTIC_THRESHOLD", "0.10")
+
+    cfg = tmp_path / ".detect-forge.toml"
+    cfg.write_text("[stale]\nsemantic_threshold = 0.42\n")
+    monkeypatch.chdir(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["stale", str(empty_rule_dir), "--semantic-threshold", "0.30"]
+    )
+    assert result.exit_code == 0, result.stderr
+    kwargs = patched_pipeline["score_rules"].call_args.kwargs
+    assert kwargs.get("semantic_threshold") == 0.10
