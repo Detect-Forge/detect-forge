@@ -1,6 +1,6 @@
 # Detect-Forge
 
-Detection engineering toolkit. One install, one config, one CI step.
+AI-Native Detection engineering toolkit. One install, one config, one CI step.
 
 ## Overview
 
