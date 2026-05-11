@@ -46,6 +46,7 @@ def scan(
     cache_dir: Path | None = None,
     cache_ttl_hours: int = 24,
     no_cache: bool = False,
+    semantic_threshold: float = 0.65,
 ) -> StalenessReport:
     """Run a stale scan and return the structured StalenessReport.
 
@@ -64,6 +65,8 @@ def scan(
             ``default_cache_dir()`` (XDG-aware).
         cache_ttl_hours: Cache TTL in hours. Ignored if ``no_cache`` is True.
         no_cache: If True, bypass the cache and refetch.
+        semantic_threshold: Cosine similarity threshold; rule × technique pairs
+            below this value emit a ``low_alignment`` finding. Default ``0.65``.
 
     Returns:
         A ``StalenessReport`` aggregating per-rule findings.
@@ -74,4 +77,9 @@ def scan(
         domain=domain, cache_dir=resolved_cache_dir, ttl_hours=ttl
     )
     rules = rule_parser.parse_rule_dir(rule_dir)
-    return scorer.score_rules(rules, index)
+    return scorer.score_rules(
+        rules,
+        index,
+        cache_dir=resolved_cache_dir,
+        semantic_threshold=semantic_threshold,
+    )

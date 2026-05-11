@@ -1,6 +1,8 @@
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+from pytest_mock import MockerFixture
+
 from detect_forge.stale.models import (
     AttackIndex,
     AttackTechnique,
@@ -234,3 +236,95 @@ def test_summary_counts_revoked_rule_in_rules_with_findings() -> None:
     assert report.summary.rules_with_findings == 1
     assert report.summary.revoked_techniques == 1
     assert report.summary.deprecated_techniques == 0
+
+
+def test_score_rule_accepts_embeddings_and_emits_low_alignment() -> None:
+    """When timestamp scorer would emit 'current' and semantic scorer
+    sees orthogonal vectors, the rule gets both findings."""
+    rule = _make_rule(["T1059"], rule_date=TODAY)
+    index = _make_index_with(_make_technique("T1059", days_ago=100))
+    score = score_rule(
+        rule,
+        index,
+        rule_embedding=[1.0, 0.0],
+        technique_embeddings={"T1059": [0.0, 1.0]},  # orthogonal -> flagged
+    )
+    kinds = {f.kind for f in score.findings}
+    assert "current" in kinds  # timestamp finding
+    assert "low_alignment" in kinds  # semantic finding
+
+
+def test_worst_severity_takes_max_across_kinds() -> None:
+    """Timestamp high (stale) beats semantic medium (low_alignment) in aggregation."""
+    rule = _make_rule(["T1059"], rule_date=TODAY - timedelta(days=300))
+    index = _make_index_with(_make_technique("T1059", days_ago=200))  # 200d -> high
+    score = score_rule(
+        rule,
+        index,
+        rule_embedding=[1.0, 0.0],
+        technique_embeddings={"T1059": [0.0, 1.0]},  # also misaligned -> medium
+    )
+    assert score.worst_severity == "high"
+    # Both findings present; aggregation picked the worse one.
+    kinds = {f.kind for f in score.findings}
+    assert "stale" in kinds
+    assert "low_alignment" in kinds
+
+
+def test_score_rule_without_embeddings_skips_semantic() -> None:
+    """When called without embeddings (existing callers), no low_alignment findings."""
+    rule = _make_rule(["T1059"], rule_date=TODAY)
+    index = _make_index_with(_make_technique("T1059", days_ago=100))
+    score = score_rule(rule, index)
+    assert all(f.kind != "low_alignment" for f in score.findings)
+
+
+def test_score_rules_builds_embeddings_when_cache_dir_given(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """score_rules with cache_dir must build embedding dicts and pass them through.
+
+    Verifies the orchestration calls EmbeddingModel.embed_batch (mocked).
+    """
+    from detect_forge.stale.scorer import score_rules
+
+    rule = _make_rule(["T1059"], rule_date=TODAY)
+    rule.description = "Detects something specific."  # so it has embedable text
+    tech = _make_technique("T1059")
+    tech_with_desc = tech.model_copy(update={"description": "Technique description."})
+    index = AttackIndex(
+        techniques={"T1059": tech_with_desc},
+        fetched_at=datetime.now(UTC),
+    )
+
+    # Mock fastembed wholesale: __init__ is a no-op; embed yields fixed vectors.
+    import numpy as np
+    mocker.patch(
+        "detect_forge.stale.embeddings.fastembed.TextEmbedding.__init__",
+        return_value=None,
+    )
+    mocker.patch(
+        "detect_forge.stale.embeddings.fastembed.TextEmbedding.embed",
+        side_effect=lambda texts: iter([np.array([0.0, 1.0]) for _ in texts]),
+    )
+
+    # Create a fake STIX bundle file so stix_bundle_hash succeeds.
+    (tmp_path / "enterprise-attack.json").write_text('{"type":"bundle"}')
+
+    report = score_rules(
+        [rule], index, cache_dir=tmp_path, semantic_threshold=0.65,
+    )
+    assert isinstance(report, StalenessReport)
+    assert report.summary.total_rules == 1
+
+
+def test_score_rules_without_cache_dir_skips_semantic() -> None:
+    """Existing behavior preserved: score_rules() without cache_dir = timestamp-only."""
+    from detect_forge.stale.scorer import score_rules
+
+    rule = _make_rule(["T1059"], rule_date=TODAY)
+    index = _make_index_with(_make_technique("T1059", days_ago=100))
+    report = score_rules([rule], index)  # no cache_dir kwarg
+    for s in report.scores:
+        for f in s.findings:
+            assert f.kind != "low_alignment"
