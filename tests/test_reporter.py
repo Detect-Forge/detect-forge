@@ -312,3 +312,96 @@ def test_terminal_proposal_uses_toml_syntax_for_elastic_rules() -> None:
 
     output = render(report, output_format="terminal", min_severity="info")
     assert "Rewritten Elastic" in output
+
+
+def test_terminal_proposal_filtered_when_below_min_severity() -> None:
+    """A proposal attached to a low-severity rule is filtered when min_severity=critical."""
+    from datetime import UTC, datetime
+    from pathlib import Path
+
+    from detect_forge.stale.models import (
+        DiffProposal,
+        ReportSummary,
+        RuleScore,
+        StalenessReport,
+    )
+    from detect_forge.stale.reporter import render
+
+    proposal = DiffProposal(
+        proposed_rule="title: Below-Threshold Proposal\n",
+        explanation="should be filtered",
+        changed_fields=[],
+        confidence=0.5,
+    )
+    # worst_severity="medium" is below "critical".
+    score = RuleScore(
+        rule_id="r1",
+        title="Medium Severity Rule",
+        source_file=Path("/rules/r.yml"),
+        status="stable",
+        findings=[],
+        worst_severity="medium",
+        worst_days_stale=0,
+        has_attack_tags=True,
+        proposals=[proposal],
+    )
+    summary = ReportSummary(
+        total_rules=1, rules_with_findings=1,
+        critical=0, high=0, medium=1, low=0,
+        no_attack_tags=0, unknown_techniques=0,
+        deprecated_techniques=0, revoked_techniques=0,
+        generated_at=datetime.now(UTC),
+        attack_domain="enterprise-attack",
+        attack_fetched_at=datetime.now(UTC),
+    )
+    report = StalenessReport(summary=summary, scores=[score])
+
+    output = render(report, output_format="terminal", min_severity="critical")
+    assert "Below-Threshold Proposal" not in output
+    assert "LLM Diff Proposal" not in output
+
+
+def test_terminal_proposal_rendered_when_score_meets_min_severity() -> None:
+    """When the score's severity meets the threshold, the proposal still renders."""
+    from datetime import UTC, datetime
+    from pathlib import Path
+
+    from detect_forge.stale.models import (
+        DiffProposal,
+        ReportSummary,
+        RuleScore,
+        StalenessReport,
+    )
+    from detect_forge.stale.reporter import render
+
+    proposal = DiffProposal(
+        proposed_rule="title: High Severity Rewrite\n",
+        explanation="visible at high threshold",
+        changed_fields=["description"],
+        confidence=0.9,
+    )
+    score = RuleScore(
+        rule_id="r2",
+        title="High Severity Rule",
+        source_file=Path("/rules/h.yml"),
+        status="stable",
+        findings=[],
+        worst_severity="high",
+        worst_days_stale=200,
+        has_attack_tags=True,
+        proposals=[proposal],
+    )
+    summary = ReportSummary(
+        total_rules=1, rules_with_findings=1,
+        critical=0, high=1, medium=0, low=0,
+        no_attack_tags=0, unknown_techniques=0,
+        deprecated_techniques=0, revoked_techniques=0,
+        generated_at=datetime.now(UTC),
+        attack_domain="enterprise-attack",
+        attack_fetched_at=datetime.now(UTC),
+    )
+    report = StalenessReport(summary=summary, scores=[score])
+
+    output = render(report, output_format="terminal", min_severity="high")
+    assert "High Severity Rewrite" in output
+    assert "LLM Diff Proposal" in output

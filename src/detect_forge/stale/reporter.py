@@ -106,8 +106,14 @@ def _render_terminal(report: StalenessReport, min_severity: str) -> str:
     console.print(table)
 
     # ---- LLM Diff Proposals section ----
+    # Proposals follow the same min_severity filter as the findings table so a
+    # user running with --min-severity critical doesn't see panels for rules
+    # they filtered out.
     proposals_with_context = [
-        (score, p) for score in report.scores for p in score.proposals
+        (score, p)
+        for score in report.scores
+        if _SEVERITY_RANK[score.worst_severity] >= threshold
+        for p in score.proposals
     ]
     for score, proposal in proposals_with_context:
         language = "toml" if score.source_file.suffix.lower() == ".toml" else "yaml"
