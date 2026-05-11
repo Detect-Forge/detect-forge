@@ -133,3 +133,74 @@ def generate_proposal(
         return None
 
     return parsed
+
+
+def validate_proposed_rule(proposed_rule: str, original_format: str) -> bool:
+    """Verify the LLM's proposed rule parses correctly for its format.
+
+    Sigma rules are parsed with pySigma. Elastic rules are parsed with
+    tomllib + minimum-shape check (`rule.name` must exist). Returns ``True``
+    when the proposal is syntactically valid, ``False`` otherwise (with
+    DEBUG-level logging of the specific error). Unknown formats reject.
+    """
+    if original_format == "sigma":
+        return _validate_sigma(proposed_rule)
+    if original_format == "elastic":
+        return _validate_elastic(proposed_rule)
+    log.debug("Unknown rule format for validation: %s", original_format)
+    return False
+
+
+def _validate_sigma(yaml_text: str) -> bool:
+    try:
+        import yaml
+    except ImportError:
+        log.debug("PyYAML not available for Sigma validation")
+        return False
+
+    try:
+        raw = yaml.safe_load(yaml_text)
+    except yaml.YAMLError as exc:
+        log.debug("Sigma YAML parse failed: %s", exc)
+        return False
+
+    if not isinstance(raw, dict):
+        log.debug("Sigma YAML is not a mapping at top level")
+        return False
+
+    if not raw.get("title"):
+        log.debug("Sigma rule has no title — fails pySigma minimum-shape check")
+        return False
+
+    # Optional deeper validation via pySigma. Importing here keeps the import
+    # cost off the cold path when proposals aren't generated.
+    try:
+        from sigma.rule import SigmaRule as PySigmaRule
+
+        PySigmaRule.from_yaml(yaml_text)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("pySigma validation failed: %s", exc)
+        return False
+
+    return True
+
+
+def _validate_elastic(toml_text: str) -> bool:
+    import tomllib
+
+    try:
+        raw = tomllib.loads(toml_text)
+    except tomllib.TOMLDecodeError as exc:
+        log.debug("Elastic TOML parse failed: %s", exc)
+        return False
+
+    rule_section = raw.get("rule")
+    if not isinstance(rule_section, dict):
+        log.debug("Elastic TOML has no [rule] section")
+        return False
+
+    if not rule_section.get("name"):
+        log.debug("Elastic rule has no rule.name")
+        return False
+
+    return True

@@ -175,3 +175,74 @@ def test_generate_proposal_returns_none_on_openai_exception(mocker: MockerFixtur
 
 def test_openai_api_key_env_constant() -> None:
     assert OPENAI_API_KEY_ENV == "OPENAI_API_KEY"
+
+
+def test_validate_sigma_proposal_accepts_valid_yaml() -> None:
+    """A syntactically valid Sigma rule must validate."""
+    from detect_forge.stale._proposals import validate_proposed_rule
+
+    valid_sigma = """\
+title: Valid Sigma Test
+id: 11111111-2222-3333-4444-555555555555
+status: stable
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\\\\powershell.exe'
+    condition: selection
+"""
+    assert validate_proposed_rule(valid_sigma, "sigma") is True
+
+
+def test_validate_sigma_proposal_rejects_invalid_yaml() -> None:
+    """A YAML parsing failure or non-Sigma-shaped doc must fail validation."""
+    from detect_forge.stale._proposals import validate_proposed_rule
+
+    not_yaml = "this is not yaml :: at all ::\nbroken: ["
+    assert validate_proposed_rule(not_yaml, "sigma") is False
+
+
+def test_validate_sigma_proposal_rejects_yaml_without_title() -> None:
+    """Sigma rules must have at minimum a title — pySigma's contract."""
+    from detect_forge.stale._proposals import validate_proposed_rule
+
+    no_title = "detection: { selection: {}, condition: selection }"
+    assert validate_proposed_rule(no_title, "sigma") is False
+
+
+def test_validate_elastic_proposal_accepts_valid_toml() -> None:
+    from detect_forge.stale._proposals import validate_proposed_rule
+
+    valid_elastic = """\
+[metadata]
+creation_date = "2024/01/01"
+
+[rule]
+name = "Valid Elastic Test"
+rule_id = "abc"
+"""
+    assert validate_proposed_rule(valid_elastic, "elastic") is True
+
+
+def test_validate_elastic_proposal_rejects_invalid_toml() -> None:
+    from detect_forge.stale._proposals import validate_proposed_rule
+
+    not_toml = "[unclosed bracket\nthis = is broken"
+    assert validate_proposed_rule(not_toml, "elastic") is False
+
+
+def test_validate_elastic_proposal_rejects_toml_without_rule_name() -> None:
+    """An Elastic rule without rule.name fails our minimum-shape check."""
+    from detect_forge.stale._proposals import validate_proposed_rule
+
+    no_name = "[metadata]\n[rule]\nrule_id = \"x\"\n"
+    assert validate_proposed_rule(no_name, "elastic") is False
+
+
+def test_validate_unknown_format_returns_false() -> None:
+    """Unknown format strings reject silently to keep callers simple."""
+    from detect_forge.stale._proposals import validate_proposed_rule
+
+    assert validate_proposed_rule("anything", "unknown") is False
