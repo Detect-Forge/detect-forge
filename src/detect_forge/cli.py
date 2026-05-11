@@ -7,6 +7,7 @@ import click
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .console import err_console
+from .exit_codes import GATED
 from .settings import settings
 
 
@@ -102,7 +103,7 @@ def scan(
         click.echo(rendered, nl=False, color=output_format == "terminal")
 
     if report.has_severity("critical"):
-        sys.exit(1)
+        sys.exit(GATED)
 
 
 if __name__ == "__main__":

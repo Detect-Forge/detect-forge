@@ -144,7 +144,7 @@ def test_scan_writes_file_when_output_given(
     assert result.stdout == ""
 
 
-def test_scan_exits_1_when_critical_finding(
+def test_scan_exits_2_when_critical_finding(
     empty_rule_dir: Path, mocker: MockerFixture
 ) -> None:
     critical_score = RuleScore(
@@ -182,7 +182,7 @@ def test_scan_exits_1_when_critical_finding(
 
     runner = CliRunner()
     result = runner.invoke(main, ["scan", str(empty_rule_dir)])
-    assert result.exit_code == 1
+    assert result.exit_code == 2
 
 
 def test_scan_rejects_nonexistent_rule_dir(tmp_path: Path) -> None:
