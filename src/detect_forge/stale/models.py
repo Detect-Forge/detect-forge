@@ -58,6 +58,7 @@ FindingKind = Literal[
     "deprecated_technique",
     "revoked_technique",
     "unknown_technique",
+    "low_alignment",
 ]
 
 
@@ -71,6 +72,7 @@ class TechniqueFinding(BaseModel):
     days_stale: int
     severity: SeverityLevel
     kind: FindingKind
+    similarity_score: float | None = None
 
 
 class RuleScore(BaseModel):

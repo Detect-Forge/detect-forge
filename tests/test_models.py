@@ -234,6 +234,43 @@ def test_detection_rule_description_defaults_to_none() -> None:
     assert r.description is None
 
 
+def test_finding_kind_includes_low_alignment() -> None:
+    # Type-level membership — the literal must include "low_alignment".
+    k: FindingKind = "low_alignment"  # type: ignore[assignment]
+    assert k == "low_alignment"
+
+
+def test_technique_finding_accepts_similarity_score() -> None:
+    from datetime import UTC, datetime
+
+    from detect_forge.stale.models import TechniqueFinding
+
+    f = TechniqueFinding(
+        technique_id="T1059",
+        technique_name="Command and Scripting Interpreter",
+        technique_modified=datetime(2025, 1, 1, tzinfo=UTC),
+        rule_effective_date=None,
+        days_stale=0,
+        severity="medium",
+        kind="low_alignment",
+        similarity_score=0.42,
+    )
+    assert f.similarity_score == 0.42
+    assert f.kind == "low_alignment"
+
+
+def test_technique_finding_similarity_score_defaults_to_none() -> None:
+    from detect_forge.stale.models import TechniqueFinding
+
+    f = TechniqueFinding(
+        technique_id="T1059",
+        days_stale=0,
+        severity="low",
+        kind="current",
+    )
+    assert f.similarity_score is None
+
+
 def test_empty_staleness_report_has_no_severity() -> None:
     from datetime import UTC
     from datetime import datetime as _datetime
