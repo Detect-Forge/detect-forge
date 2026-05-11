@@ -9,14 +9,14 @@ Detect-Forge is a composable CLI for detection engineers. Each capability is a s
 The first shipping capability is `stale` — it scores your Sigma (YAML) and Elastic Detection Rules (TOML — covering EQL, KQL, and ESQL) for ATT&CK technique staleness along three dimensions:
 
 1. **Timestamp drift** — compares ATT&CK STIX `modified` timestamps to rule modification dates (deterministic).
-2. **Semantic drift** *(in progress)* — embeddings-based cosine similarity between rule detection logic and current ATT&CK technique description.
+2. **Semantic alignment** ✅ — embeddings-based cosine similarity between rule text (title + description) and current ATT&CK technique description. Flags rules whose alignment falls below a configurable threshold (`--semantic-threshold`, default 0.65). True historical drift (comparing against past MITRE definitions) is Phase 3.b.
 3. **LLM diff proposals** *(planned)* — opt-in, BYOLLM (OpenAI primary, Claude secondary); proposes updated rules for flagged stale entries.
 
 Designed to run in GitHub Actions as a CI gate. No data leaves your environment.
 
 ## Status
 
-🔨 Building toward May 23, 2026 launch — `stale` semantic drift layer in progress (Phase 3). LLM diff proposal layer planned (Phase 4). Other subcommands (`backtest`, `coverage`, `cti ingest`, `audit`) are registered as stubs and will ship in subsequent releases.
+🔨 Building toward May 23, 2026 launch — `stale` semantic alignment now shipped (Phase 3.a); true historical drift (Phase 3.b) and LLM diff proposals (Phase 4) planned. Other subcommands (`backtest`, `coverage`, `cti ingest`, `audit`) are registered as stubs and will ship in subsequent releases.
 
 ## Requirements
 
@@ -58,8 +58,15 @@ detect-forge stale path/to/rules
 | `--min-severity {low,medium,high,critical}` | `low` | Only show rules at or above this severity. |
 | `--no-cache` | off | Bypass the disk cache and fetch a fresh ATT&CK bundle. |
 | `--domain {enterprise-attack,ics-attack,mobile-attack}` | `enterprise-attack` | ATT&CK domain to fetch. |
+| `--semantic-threshold FLOAT` | `0.65` | Cosine similarity threshold; pairs below this value emit a `low_alignment` finding. |
 
 Supported rule formats are auto-detected by extension. `.yml`/`.yaml` files are parsed as Sigma rules; `.toml` files are parsed as Elastic Detection Rules. The Elastic schema covers EQL, KQL (kuery), and ESQL — they share the same TOML structure and only differ in the `language` field.
+
+### How alignment is scored
+
+Each rule is embedded as `title + description` (the natural-language portion — the detection-query body is NOT embedded, since query languages don't align well with general-purpose text embeddings). Each ATT&CK technique is embedded as `name + description` from the STIX bundle. For every technique a rule tags, we compute the cosine similarity between the two vectors; pairs whose score falls strictly below `--semantic-threshold` (default `0.65`) emit a `low_alignment` finding at `medium` severity, with the score visible in the `Similarity` column of the report.
+
+Embeddings are computed once with [`fastembed`](https://github.com/qdrant/fastembed) (model `BAAI/bge-small-en-v1.5`, ~30MB, auto-downloaded on first run) and cached under `$CACHE_DIR/embeddings/`. Subsequent runs read from cache. There is no `--no-semantic` flag: warm-cache cost is near-zero, and cold-cache work has to happen at least once anyway.
 
 Progress spinners go to **stderr**; the report goes to **stdout** so JSON output can be piped safely:
 
