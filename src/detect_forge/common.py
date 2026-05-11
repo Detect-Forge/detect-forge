@@ -13,7 +13,7 @@ def common_output_options[F: Callable[..., Any]](func: F) -> F:
     Three options are added in this order (Click applies decorators bottom-up,
     so the resulting --help order is format -> output -> min-severity):
 
-    - ``--format / -f`` (choice: terminal | json | html, default terminal)
+    - ``--format`` (choice: terminal | json | html, default terminal)
     - ``--output / -o`` (Path, default None)
     - ``--min-severity`` (choice: low | medium | high | critical, default low)
     """
