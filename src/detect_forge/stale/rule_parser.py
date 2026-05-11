@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from .models import SigmaRule
+from .models import DetectionRule
 
 log = logging.getLogger(__name__)
 
@@ -61,11 +61,11 @@ def _parse_sigma_date(value: object) -> date | None:
         return None
 
 
-def parse_rule_file(path: Path) -> SigmaRule | None:
+def parse_rule_file(path: Path) -> DetectionRule | None:
     """Parse a single Sigma YAML rule file.
 
     Returns None if the file can't be read, isn't valid YAML, isn't a YAML dict,
-    or fails SigmaRule validation.
+    or fails DetectionRule validation.
     """
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -81,7 +81,7 @@ def parse_rule_file(path: Path) -> SigmaRule | None:
     technique_ids = _extract_technique_ids(tags)
 
     try:
-        return SigmaRule(
+        return DetectionRule(
             rule_id=raw.get("id"),
             title=raw.get("title", path.stem),
             status=raw.get("status"),
@@ -103,7 +103,7 @@ def parse_rule_file(path: Path) -> SigmaRule | None:
 def parse_rule_dir(
     rule_dir: Path,
     glob: str = "**/*.yml",
-) -> list[SigmaRule]:
+) -> list[DetectionRule]:
     """Recursively find and parse Sigma rule YAML files in ``rule_dir``.
 
     Files that fail parsing (bad YAML, non-dict content, validation errors)
@@ -113,7 +113,7 @@ def parse_rule_dir(
     The default glob only matches ``.yml``; repos that use ``.yaml`` must pass
     ``glob="**/*.yaml"`` explicitly.
     """
-    rules: list[SigmaRule] = []
+    rules: list[DetectionRule] = []
     found = list(rule_dir.glob(glob))
     log.info("Found %d YAML files in %s", len(found), rule_dir)
 

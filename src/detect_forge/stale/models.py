@@ -30,8 +30,13 @@ class AttackIndex(BaseModel):
     source_domain: str = "enterprise-attack"
 
 
-class SigmaRule(BaseModel):
-    """A parsed Sigma rule with the fields relevant to staleness scoring."""
+class DetectionRule(BaseModel):
+    """A parsed detection rule with the fields relevant to staleness scoring.
+
+    Common shape for both Sigma (YAML) and Elastic Detection Rules (TOML);
+    populated by the per-format parsers in :mod:`sigma_parser` and
+    :mod:`elastic_parser`.
+    """
 
     rule_id: str | None = None
     title: str
@@ -68,7 +73,7 @@ class TechniqueFinding(BaseModel):
 
 
 class RuleScore(BaseModel):
-    """Aggregated staleness score for a single Sigma rule."""
+    """Aggregated staleness score for a single detection rule."""
 
     rule_id: str | None = None
     title: str

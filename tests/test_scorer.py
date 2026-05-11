@@ -4,8 +4,8 @@ from pathlib import Path
 from detect_forge.stale.models import (
     AttackIndex,
     AttackTechnique,
+    DetectionRule,
     RuleScore,
-    SigmaRule,
     StalenessReport,
 )
 from detect_forge.stale.scorer import score_rule, score_rules
@@ -67,8 +67,8 @@ def _make_rule(
     technique_ids: list[str],
     rule_date: date | None = None,
     modified_date: date | None = None,
-) -> SigmaRule:
-    return SigmaRule(
+) -> DetectionRule:
+    return DetectionRule(
         rule_id="test-id",
         title="Test Rule",
         status="test",

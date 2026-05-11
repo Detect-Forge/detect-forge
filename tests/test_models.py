@@ -7,11 +7,11 @@ import pytest
 from detect_forge.stale.models import (
     AttackIndex,
     AttackTechnique,
+    DetectionRule,
     FindingKind,
     ReportSummary,
     RuleScore,
     SeverityLevel,
-    SigmaRule,
     StalenessReport,
     TechniqueFinding,
 )
@@ -50,10 +50,10 @@ def test_attack_index_shape() -> None:
     assert idx.fetched_at.tzinfo is not None
 
 
-def test_sigma_rule_minimal_construction() -> None:
+def test_detection_rule_minimal_construction() -> None:
     from pathlib import Path
 
-    r = SigmaRule(
+    r = DetectionRule(
         title="PowerShell Encoded Command",
         source_file=Path("/rules/ps.yml"),
     )
@@ -67,11 +67,11 @@ def test_sigma_rule_minimal_construction() -> None:
     assert r.raw_tags == []
 
 
-def test_sigma_rule_full_construction() -> None:
+def test_detection_rule_full_construction() -> None:
     from datetime import date
     from pathlib import Path
 
-    r = SigmaRule(
+    r = DetectionRule(
         rule_id="10598928-44a9-4730-b79f-69b62fe73666",
         title="PowerShell Encoded Command",
         status="test",

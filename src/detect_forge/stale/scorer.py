@@ -5,10 +5,10 @@ from datetime import UTC, date, datetime
 
 from .models import (
     AttackIndex,
+    DetectionRule,
     ReportSummary,
     RuleScore,
     SeverityLevel,
-    SigmaRule,
     StalenessReport,
     TechniqueFinding,
 )
@@ -116,7 +116,7 @@ def _score_technique(
 
 
 
-def score_rule(rule: SigmaRule, index: AttackIndex) -> RuleScore:
+def score_rule(rule: DetectionRule, index: AttackIndex) -> RuleScore:
     effective_date = rule.modified_date or rule.rule_date
 
     if not rule.technique_ids:
@@ -153,7 +153,7 @@ def score_rule(rule: SigmaRule, index: AttackIndex) -> RuleScore:
     )
 
 
-def score_rules(rules: list[SigmaRule], index: AttackIndex) -> StalenessReport:
+def score_rules(rules: list[DetectionRule], index: AttackIndex) -> StalenessReport:
     """Score rules against an ATT&CK index.
 
     Returns a StalenessReport with scores sorted worst-first.

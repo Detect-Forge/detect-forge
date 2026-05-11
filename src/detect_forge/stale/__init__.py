@@ -8,11 +8,11 @@ from .attack_client import build_index
 from .models import (
     AttackIndex,
     AttackTechnique,
+    DetectionRule,
     FindingKind,
     ReportSummary,
     RuleScore,
     SeverityLevel,
-    SigmaRule,
     StalenessReport,
     TechniqueFinding,
 )
@@ -23,11 +23,11 @@ from .scorer import score_rule, score_rules
 __all__ = [
     "AttackIndex",
     "AttackTechnique",
+    "DetectionRule",
     "FindingKind",
     "ReportSummary",
     "RuleScore",
     "SeverityLevel",
-    "SigmaRule",
     "StalenessReport",
     "TechniqueFinding",
     "build_index",
