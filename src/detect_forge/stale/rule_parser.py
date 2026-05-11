@@ -4,7 +4,7 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 
-from . import sigma_parser
+from . import elastic_parser, sigma_parser
 from .models import DetectionRule
 
 log = logging.getLogger(__name__)
@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 _EXT_DISPATCH: dict[str, Callable[[Path], DetectionRule | None]] = {
     ".yml": sigma_parser.parse_rule_file,
     ".yaml": sigma_parser.parse_rule_file,
+    ".toml": elastic_parser.parse_rule_file,
 }
 
 
