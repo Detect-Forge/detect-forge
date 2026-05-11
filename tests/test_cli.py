@@ -48,7 +48,7 @@ def test_main_help_runs() -> None:
     runner = CliRunner()
     result = runner.invoke(main, ["--help"])
     assert result.exit_code == 0
-    assert "Score your detection rules" in result.output
+    assert "Detection engineering toolkit" in result.output
 
 
 def test_main_version_prints_package_version() -> None:
@@ -76,7 +76,7 @@ def patched_pipeline(mocker: MockerFixture) -> dict[str, MagicMock]:
 
 def test_scan_help_runs() -> None:
     runner = CliRunner()
-    result = runner.invoke(main, ["scan", "--help"])
+    result = runner.invoke(main, ["stale", "--help"])
     assert result.exit_code == 0
     assert "RULE_DIR" in result.output
     assert "--min-severity" in result.output
@@ -87,7 +87,7 @@ def test_scan_happy_path_terminal(
     empty_rule_dir: Path, patched_pipeline: dict[str, MagicMock]
 ) -> None:
     runner = CliRunner()
-    result = runner.invoke(main, ["scan", str(empty_rule_dir)])
+    result = runner.invoke(main, ["stale", str(empty_rule_dir)])
     assert result.exit_code == 0, result.stderr
     assert "detect-forge" in result.stdout.lower()
     patched_pipeline["build_index"].assert_called_once()
@@ -99,7 +99,7 @@ def test_scan_json_output_to_stdout(
     empty_rule_dir: Path, patched_pipeline: dict[str, MagicMock]
 ) -> None:
     runner = CliRunner()
-    result = runner.invoke(main, ["scan", str(empty_rule_dir), "--format", "json"])
+    result = runner.invoke(main, ["stale", str(empty_rule_dir), "--format", "json"])
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["scores"] == []
@@ -113,7 +113,7 @@ def test_scan_no_cache_sets_ttl_zero(
 ) -> None:
     monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
     runner = CliRunner()
-    result = runner.invoke(main, ["scan", str(empty_rule_dir), "--no-cache"])
+    result = runner.invoke(main, ["stale", str(empty_rule_dir), "--no-cache"])
     assert result.exit_code == 0
     kwargs = patched_pipeline["build_index"].call_args.kwargs
     assert kwargs["ttl_hours"] == 0
@@ -128,7 +128,7 @@ def test_scan_honors_settings_no_cache(
     """DETECT_FORGE_NO_CACHE=true must force ttl=0 even without the --no-cache flag."""
     monkeypatch.setenv("DETECT_FORGE_NO_CACHE", "true")
     runner = CliRunner()
-    result = runner.invoke(main, ["scan", str(empty_rule_dir)])
+    result = runner.invoke(main, ["stale", str(empty_rule_dir)])
     assert result.exit_code == 0, result.stderr
     kwargs = patched_pipeline["build_index"].call_args.kwargs
     assert kwargs["ttl_hours"] == 0
@@ -139,7 +139,7 @@ def test_scan_domain_option_flows_through(
 ) -> None:
     runner = CliRunner()
     result = runner.invoke(
-        main, ["scan", str(empty_rule_dir), "--domain", "ics-attack"]
+        main, ["stale", str(empty_rule_dir), "--domain", "ics-attack"]
     )
     assert result.exit_code == 0
     kwargs = patched_pipeline["build_index"].call_args.kwargs
@@ -153,7 +153,7 @@ def test_scan_writes_file_when_output_given(
     runner = CliRunner()
     result = runner.invoke(
         main,
-        ["scan", str(empty_rule_dir), "--format", "json", "--output", str(out)],
+        ["stale", str(empty_rule_dir), "--format", "json", "--output", str(out)],
     )
     assert result.exit_code == 0
     assert out.exists()
@@ -199,11 +199,11 @@ def test_scan_exits_2_when_critical_finding(
     mocker.patch("detect_forge.stale.scorer.score_rules", return_value=critical_report)
 
     runner = CliRunner()
-    result = runner.invoke(main, ["scan", str(empty_rule_dir)])
+    result = runner.invoke(main, ["stale", str(empty_rule_dir)])
     assert result.exit_code == GATED
 
 
 def test_scan_rejects_nonexistent_rule_dir(tmp_path: Path) -> None:
     runner = CliRunner()
-    result = runner.invoke(main, ["scan", str(tmp_path / "does-not-exist")])
+    result = runner.invoke(main, ["stale", str(tmp_path / "does-not-exist")])
     assert result.exit_code != 0
