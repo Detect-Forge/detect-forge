@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-def _default_cache_dir() -> Path:
+def default_cache_dir() -> Path:
     """Return the default cache directory honoring XDG_CACHE_HOME.
 
     Falls back to ``~/.cache/detect-forge`` when ``XDG_CACHE_HOME`` is unset
@@ -26,7 +26,7 @@ def cache_path(domain: str, cache_dir: Path | None = None) -> Path:
 
     Ensures the cache directory exists.
     """
-    resolved = cache_dir if cache_dir is not None else _default_cache_dir()
+    resolved = cache_dir if cache_dir is not None else default_cache_dir()
     resolved.mkdir(parents=True, exist_ok=True)
     return resolved / f"{domain}.json"
 
@@ -48,7 +48,10 @@ def read_cache(path: Path) -> dict[str, Any]:
 
 
 def write_cache(path: Path, data: dict[str, Any]) -> None:
-    """Write a dict to disk as JSON atomically (write tmp + rename)."""
+    """Write a dict to disk as JSON atomically (write tmp + rename).
+
+    `Path.replace` is atomic on POSIX when tmp and path are on the same filesystem.
+    """
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(data), encoding="utf-8")
     tmp.replace(path)
