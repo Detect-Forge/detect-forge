@@ -1,0 +1,32 @@
+[metadata]
+creation_date = "2023/06/01"
+updated_date = "2025/04/01"
+maturity = "production"
+
+[rule]
+name = "EQL Rule With Subtechnique"
+rule_id = "00000000-0000-0000-0000-000000000003"
+severity = "high"
+type = "eql"
+language = "eql"
+
+query = "process where process.name == \"lsass.exe\""
+
+[[rule.threat]]
+[[rule.threat.technique]]
+id = "T1003"
+name = "OS Credential Dumping"
+reference = "https://attack.mitre.org/techniques/T1003/"
+[[rule.threat.technique.subtechnique]]
+id = "T1003.001"
+name = "LSASS Memory"
+reference = "https://attack.mitre.org/techniques/T1003/001/"
+[[rule.threat.technique.subtechnique]]
+id = "T1003.002"
+name = "Security Account Manager"
+reference = "https://attack.mitre.org/techniques/T1003/002/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

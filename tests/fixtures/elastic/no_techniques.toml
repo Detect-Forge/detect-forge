@@ -1,0 +1,13 @@
+[metadata]
+creation_date = "2024/01/01"
+updated_date = "2024/06/01"
+maturity = "development"
+
+[rule]
+name = "Rule Without ATT&CK Mapping"
+rule_id = "00000000-0000-0000-0000-000000000004"
+severity = "low"
+type = "query"
+language = "kuery"
+
+query = "event.code : 4625"

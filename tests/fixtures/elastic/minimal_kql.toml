@@ -1,0 +1,24 @@
+[metadata]
+creation_date = "2023/01/11"
+updated_date = "2026/02/14"
+maturity = "production"
+
+[rule]
+name = "Minimal KQL Test Rule"
+rule_id = "00000000-0000-0000-0000-000000000002"
+severity = "low"
+type = "query"
+language = "kuery"
+
+query = "process.name : powershell.exe"
+
+[[rule.threat]]
+[[rule.threat.technique]]
+id = "T1086"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1086/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
