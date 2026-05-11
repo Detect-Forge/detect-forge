@@ -138,7 +138,7 @@ def test_html_renders_unicode_em_dash_not_entity_reference(sample_report) -> Non
 def test_terminal_report_omits_similarity_column_without_semantic_findings(
     sample_report,
 ) -> None:
-    """No low_alignment findings → no Similarity column header."""
+    """No semantic_drift findings → no Similarity column header."""
     from detect_forge.stale.reporter import render
 
     output = render(sample_report, output_format="terminal", min_severity="info")
@@ -146,7 +146,7 @@ def test_terminal_report_omits_similarity_column_without_semantic_findings(
 
 
 def test_terminal_report_shows_similarity_column_with_semantic_findings() -> None:
-    """At least one low_alignment finding → Similarity column appears with the score."""
+    """At least one semantic_drift finding → Similarity column appears with the score."""
     from datetime import UTC, datetime
     from pathlib import Path
 
@@ -165,7 +165,7 @@ def test_terminal_report_shows_similarity_column_with_semantic_findings() -> Non
         rule_effective_date=None,
         days_stale=0,
         severity="medium",
-        kind="low_alignment",
+        kind="semantic_drift",
         similarity_score=0.42,
     )
     score = RuleScore(
@@ -202,7 +202,7 @@ def test_json_output_unconditionally_includes_similarity_score(sample_report) ->
 
     output = render(sample_report, output_format="json", min_severity="info")
     data = json.loads(output)
-    # sample_report has no low_alignment findings, but the field must still
+    # sample_report has no semantic_drift findings, but the field must still
     # appear with null on every finding for forward compatibility.
     for score in data["scores"]:
         for finding in score["findings"]:

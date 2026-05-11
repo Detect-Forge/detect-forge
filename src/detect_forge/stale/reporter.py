@@ -60,7 +60,7 @@ def _render_terminal(report: StalenessReport, min_severity: str) -> str:
     console.print(Panel(summary_text, title="Detect-Forge Stale Report", expand=False))
 
     has_semantic = any(
-        f.kind == "low_alignment"
+        f.kind == "semantic_drift"
         for score in report.scores
         for f in score.findings
     )

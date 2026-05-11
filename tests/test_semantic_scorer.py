@@ -87,7 +87,7 @@ def test_aligned_pair_yields_no_finding() -> None:
     assert findings == []
 
 
-def test_misaligned_pair_yields_low_alignment_finding() -> None:
+def test_misaligned_pair_yields_semantic_drift_finding() -> None:
     """Orthogonal vectors → sim 0 → below 0.65 threshold → one finding."""
     rule = _make_rule(["T1059"])
     index = _make_index(_make_technique("T1059"))
@@ -96,7 +96,7 @@ def test_misaligned_pair_yields_low_alignment_finding() -> None:
     findings = score_rule_semantic(rule, index, rule_vec, tech_vecs)
     assert len(findings) == 1
     f = findings[0]
-    assert f.kind == "low_alignment"
+    assert f.kind == "semantic_drift"
     assert f.severity == "medium"
     assert f.technique_id == "T1059"
     assert f.similarity_score == 0.0

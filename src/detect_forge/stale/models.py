@@ -58,7 +58,7 @@ FindingKind = Literal[
     "deprecated_technique",
     "revoked_technique",
     "unknown_technique",
-    "low_alignment",
+    "semantic_drift",
 ]
 
 

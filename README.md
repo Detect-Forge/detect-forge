@@ -58,13 +58,13 @@ detect-forge stale path/to/rules
 | `--min-severity {low,medium,high,critical}` | `low` | Only show rules at or above this severity. |
 | `--no-cache` | off | Bypass the disk cache and fetch a fresh ATT&CK bundle. |
 | `--domain {enterprise-attack,ics-attack,mobile-attack}` | `enterprise-attack` | ATT&CK domain to fetch. |
-| `--semantic-threshold FLOAT` | `0.65` | Cosine similarity threshold; pairs below this value emit a `low_alignment` finding. |
+| `--semantic-threshold FLOAT` | `0.65` | Cosine similarity threshold; pairs below this value emit a `semantic_drift` finding. |
 
 Supported rule formats are auto-detected by extension. `.yml`/`.yaml` files are parsed as Sigma rules; `.toml` files are parsed as Elastic Detection Rules. The Elastic schema covers EQL, KQL (kuery), and ESQL — they share the same TOML structure and only differ in the `language` field.
 
 ### How alignment is scored
 
-Each rule is embedded as `title + description` (the natural-language portion — the detection-query body is NOT embedded, since query languages don't align well with general-purpose text embeddings). Each ATT&CK technique is embedded as `name + description` from the STIX bundle. For every technique a rule tags, we compute the cosine similarity between the two vectors; pairs whose score falls strictly below `--semantic-threshold` (default `0.65`) emit a `low_alignment` finding at `medium` severity, with the score visible in the `Similarity` column of the report.
+Each rule is embedded as `title + description` (the natural-language portion — the detection-query body is NOT embedded, since query languages don't align well with general-purpose text embeddings). Each ATT&CK technique is embedded as `name + description` from the STIX bundle. For every technique a rule tags, we compute the cosine similarity between the two vectors; pairs whose score falls strictly below `--semantic-threshold` (default `0.65`) emit a `semantic_drift` finding at `medium` severity, with the score visible in the `Similarity` column of the report.
 
 Embeddings are computed once with [`fastembed`](https://github.com/qdrant/fastembed) (model `BAAI/bge-small-en-v1.5`, ~30MB, auto-downloaded on first run) and cached under `$CACHE_DIR/embeddings/`. Subsequent runs read from cache. There is no `--no-semantic` flag: warm-cache cost is near-zero, and cold-cache work has to happen at least once anyway.
 

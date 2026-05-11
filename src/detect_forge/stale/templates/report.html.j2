@@ -42,7 +42,7 @@
 </div>
 <p class="meta">ATT&amp;CK domain: <strong>{{ summary.attack_domain }}</strong> &middot; Fetched: {{ summary.attack_fetched_at.strftime('%Y-%m-%d %H:%M UTC') }} &middot; Generated: {{ summary.generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
 <table id="results">
-{% set has_semantic = scores | selectattr('findings') | sum(start=[], attribute='findings') | selectattr('kind', 'equalto', 'low_alignment') | list | length > 0 %}
+{% set has_semantic = scores | selectattr('findings') | sum(start=[], attribute='findings') | selectattr('kind', 'equalto', 'semantic_drift') | list | length > 0 %}
 <thead><tr>
   <th onclick="sortTable(0)">Severity</th>
   <th onclick="sortTable(1)">Rule Title</th>

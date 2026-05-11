@@ -238,7 +238,7 @@ def test_summary_counts_revoked_rule_in_rules_with_findings() -> None:
     assert report.summary.deprecated_techniques == 0
 
 
-def test_score_rule_accepts_embeddings_and_emits_low_alignment() -> None:
+def test_score_rule_accepts_embeddings_and_emits_semantic_drift() -> None:
     """When timestamp scorer would emit 'current' and semantic scorer
     sees orthogonal vectors, the rule gets both findings."""
     rule = _make_rule(["T1059"], rule_date=TODAY)
@@ -251,11 +251,11 @@ def test_score_rule_accepts_embeddings_and_emits_low_alignment() -> None:
     )
     kinds = {f.kind for f in score.findings}
     assert "current" in kinds  # timestamp finding
-    assert "low_alignment" in kinds  # semantic finding
+    assert "semantic_drift" in kinds  # semantic finding
 
 
 def test_worst_severity_takes_max_across_kinds() -> None:
-    """Timestamp high (stale) beats semantic medium (low_alignment) in aggregation."""
+    """Timestamp high (stale) beats semantic medium (semantic_drift) in aggregation."""
     rule = _make_rule(["T1059"], rule_date=TODAY - timedelta(days=300))
     index = _make_index_with(_make_technique("T1059", days_ago=200))  # 200d -> high
     score = score_rule(
@@ -268,15 +268,15 @@ def test_worst_severity_takes_max_across_kinds() -> None:
     # Both findings present; aggregation picked the worse one.
     kinds = {f.kind for f in score.findings}
     assert "stale" in kinds
-    assert "low_alignment" in kinds
+    assert "semantic_drift" in kinds
 
 
 def test_score_rule_without_embeddings_skips_semantic() -> None:
-    """When called without embeddings (existing callers), no low_alignment findings."""
+    """When called without embeddings (existing callers), no semantic_drift findings."""
     rule = _make_rule(["T1059"], rule_date=TODAY)
     index = _make_index_with(_make_technique("T1059", days_ago=100))
     score = score_rule(rule, index)
-    assert all(f.kind != "low_alignment" for f in score.findings)
+    assert all(f.kind != "semantic_drift" for f in score.findings)
 
 
 def test_score_rules_builds_embeddings_when_cache_dir_given(
@@ -327,4 +327,4 @@ def test_score_rules_without_cache_dir_skips_semantic() -> None:
     report = score_rules([rule], index)  # no cache_dir kwarg
     for s in report.scores:
         for f in s.findings:
-            assert f.kind != "low_alignment"
+            assert f.kind != "semantic_drift"

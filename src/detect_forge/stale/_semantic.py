@@ -1,8 +1,8 @@
-"""Semantic-alignment scoring.
+"""Semantic-drift scoring.
 
 Given a rule, an ATT&CK index, and pre-computed embeddings (one vector for the
 rule, one vector per technique in the index), produce zero-or-more
-``TechniqueFinding`` entries of kind ``low_alignment`` for technique pairs whose
+``TechniqueFinding`` entries of kind ``semantic_drift`` for technique pairs whose
 cosine similarity falls below the threshold.
 
 Callers (``scorer.score_rules``) batch all embedding work into two big
@@ -25,7 +25,7 @@ SEMANTIC_THRESHOLD_DEFAULT = 0.65
 """Cosine similarity at or above which a rule × technique pair is considered aligned."""
 
 SEMANTIC_SEVERITY: SeverityLevel = "medium"
-"""Severity bucket for all low_alignment findings in v0.1 (single bucket per spec)."""
+"""Severity bucket for all semantic_drift findings in v0.1 (single bucket per spec)."""
 
 
 def _rule_text(rule: DetectionRule) -> str | None:
@@ -53,7 +53,7 @@ def score_rule_semantic(
     technique_embeddings: dict[str, list[float]],
     threshold: float = SEMANTIC_THRESHOLD_DEFAULT,
 ) -> list[TechniqueFinding]:
-    """Return zero-or-more low_alignment findings for ``rule``.
+    """Return zero-or-more semantic_drift findings for ``rule``.
 
     No-ops gracefully if the rule has no embedable text or if none of the
     rule's techniques have embedable descriptions in the index. The timestamp
@@ -81,7 +81,7 @@ def score_rule_semantic(
                     rule_effective_date=rule.modified_date or rule.rule_date,
                     days_stale=0,
                     severity=SEMANTIC_SEVERITY,
-                    kind="low_alignment",
+                    kind="semantic_drift",
                     similarity_score=round(sim, 4),
                 )
             )

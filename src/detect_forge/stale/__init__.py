@@ -66,7 +66,7 @@ def scan(
         cache_ttl_hours: Cache TTL in hours. Ignored if ``no_cache`` is True.
         no_cache: If True, bypass the cache and refetch.
         semantic_threshold: Cosine similarity threshold; rule × technique pairs
-            below this value emit a ``low_alignment`` finding. Default ``0.65``.
+            below this value emit a ``semantic_drift`` finding. Default ``0.65``.
 
     Returns:
         A ``StalenessReport`` aggregating per-rule findings.
