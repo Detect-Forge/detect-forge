@@ -9,7 +9,6 @@ import requests
 from mitreattack.stix20 import MitreAttackData
 
 from ..cache import (
-    DEFAULT_CACHE_DIR,
     DEFAULT_TTL_HOURS,
     cache_path,
     is_cache_valid,
@@ -69,7 +68,7 @@ def _parse_technique(stix_obj: Any) -> AttackTechnique | None:
 
 def build_index(
     domain: str = "enterprise-attack",
-    cache_dir: Path = DEFAULT_CACHE_DIR,
+    cache_dir: Path | None = None,
     ttl_hours: int = DEFAULT_TTL_HOURS,
     stix_path: Path | None = None,
 ) -> AttackIndex:

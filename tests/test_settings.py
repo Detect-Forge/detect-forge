@@ -7,7 +7,8 @@ import pytest
 from detect_forge.settings import Settings
 
 
-def test_defaults_match_spec() -> None:
+def test_defaults_match_spec(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
     s = Settings()
     assert s.cache_dir == Path.home() / ".cache" / "detect-forge"
     assert s.cache_ttl_hours == 24

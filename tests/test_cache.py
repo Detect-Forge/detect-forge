@@ -5,9 +5,9 @@ import os
 import time
 from pathlib import Path
 
+import pytest
+
 from detect_forge.cache import (
-    DEFAULT_CACHE_DIR,
-    DEFAULT_TTL_HOURS,
     cache_path,
     is_cache_valid,
     read_cache,
@@ -15,9 +15,12 @@ from detect_forge.cache import (
 )
 
 
-def test_defaults_match_spec() -> None:
-    assert Path.home() / ".cache" / "detect-forge" == DEFAULT_CACHE_DIR
-    assert DEFAULT_TTL_HOURS == 24
+def test_cache_path_uses_factory_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    path = cache_path("enterprise-attack")
+    assert path == tmp_path / "detect-forge" / "enterprise-attack.json"
 
 
 def test_cache_path_creates_directory_and_returns_filename(tmp_path: Path) -> None:

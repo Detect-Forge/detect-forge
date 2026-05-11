@@ -1,21 +1,34 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-DEFAULT_CACHE_DIR = Path.home() / ".cache" / "detect-forge"
+
+def _default_cache_dir() -> Path:
+    """Return the default cache directory honoring XDG_CACHE_HOME.
+
+    Falls back to ``~/.cache/detect-forge`` when ``XDG_CACHE_HOME`` is unset
+    or empty.
+    """
+    xdg = os.environ.get("XDG_CACHE_HOME") or ""
+    base = Path(xdg) if xdg else Path.home() / ".cache"
+    return base / "detect-forge"
+
+
 DEFAULT_TTL_HOURS = 24
 
 
-def cache_path(domain: str, cache_dir: Path = DEFAULT_CACHE_DIR) -> Path:
+def cache_path(domain: str, cache_dir: Path | None = None) -> Path:
     """Return the filesystem path for a given ATT&CK domain's cached STIX bundle.
 
     Ensures the cache directory exists.
     """
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / f"{domain}.json"
+    resolved = cache_dir if cache_dir is not None else _default_cache_dir()
+    resolved.mkdir(parents=True, exist_ok=True)
+    return resolved / f"{domain}.json"
 
 
 def is_cache_valid(path: Path, ttl_hours: int = DEFAULT_TTL_HOURS) -> bool:
@@ -25,9 +38,7 @@ def is_cache_valid(path: Path, ttl_hours: int = DEFAULT_TTL_HOURS) -> bool:
     """
     if ttl_hours <= 0 or not path.exists():
         return False
-    age = datetime.now(UTC) - datetime.fromtimestamp(
-        path.stat().st_mtime, tz=UTC
-    )
+    age = datetime.now(UTC) - datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
     return age < timedelta(hours=ttl_hours)
 
 
@@ -37,10 +48,7 @@ def read_cache(path: Path) -> dict[str, Any]:
 
 
 def write_cache(path: Path, data: dict[str, Any]) -> None:
-    """Write a dict to disk as JSON atomically (write tmp + rename).
-
-    `Path.replace` is atomic on POSIX when tmp and path are on the same filesystem.
-    """
+    """Write a dict to disk as JSON atomically (write tmp + rename)."""
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(data), encoding="utf-8")
     tmp.replace(path)

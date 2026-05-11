@@ -107,8 +107,11 @@ def test_scan_json_output_to_stdout(
 
 
 def test_scan_no_cache_sets_ttl_zero(
-    empty_rule_dir: Path, patched_pipeline: dict[str, MagicMock]
+    empty_rule_dir: Path,
+    patched_pipeline: dict[str, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
     runner = CliRunner()
     result = runner.invoke(main, ["scan", str(empty_rule_dir), "--no-cache"])
     assert result.exit_code == 0
