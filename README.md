@@ -6,7 +6,7 @@ AI-Native Detection engineering toolkit. One install, one config, one CI step.
 
 Detect-Forge is a composable CLI for detection engineers. Each capability is a subcommand; they share configuration, output formatting, caching, and a single CI gate. No platform, no sign-up.
 
-The first shipping capability is `stale` — it scores your Sigma detection rules for ATT&CK technique staleness along three dimensions:
+The first shipping capability is `stale` — it scores your Sigma (YAML) and Elastic Detection Rules (TOML — covering EQL, KQL, and ESQL) for ATT&CK technique staleness along three dimensions:
 
 1. **Timestamp drift** — compares ATT&CK STIX `modified` timestamps to rule modification dates (deterministic).
 2. **Semantic drift** *(in progress)* — embeddings-based cosine similarity between rule detection logic and current ATT&CK technique description.
@@ -52,12 +52,14 @@ detect-forge stale path/to/rules
 
 | Option | Default | Description |
 |---|---|---|
-| `RULE_DIR` (positional) | — | Directory of Sigma rules to scan. Must exist. |
+| `RULE_DIR` (positional) | — | Directory of detection rules to scan. Recursively picks up `.yml`/`.yaml` (Sigma) and `.toml` (Elastic Detection Rules: EQL/KQL/ESQL). Must exist. |
 | `--format {terminal,json,html}` | `terminal` | Output format. |
 | `-o, --output PATH` | _stdout_ | Write output to a file instead of stdout. |
 | `--min-severity {low,medium,high,critical}` | `low` | Only show rules at or above this severity. |
 | `--no-cache` | off | Bypass the disk cache and fetch a fresh ATT&CK bundle. |
 | `--domain {enterprise-attack,ics-attack,mobile-attack}` | `enterprise-attack` | ATT&CK domain to fetch. |
+
+Supported rule formats are auto-detected by extension. `.yml`/`.yaml` files are parsed as Sigma rules; `.toml` files are parsed as Elastic Detection Rules. The Elastic schema covers EQL, KQL (kuery), and ESQL — they share the same TOML structure and only differ in the `language` field.
 
 Progress spinners go to **stderr**; the report goes to **stdout** so JSON output can be piped safely:
 
