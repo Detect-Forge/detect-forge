@@ -10,7 +10,7 @@ The first shipping capability is `stale` — it scores your Sigma (YAML) and Ela
 
 1. **Timestamp drift** — compares ATT&CK STIX `modified` timestamps to rule modification dates (deterministic).
 2. **Semantic alignment** ✅ — embeddings-based cosine similarity between rule text (title + description) and current ATT&CK technique description. Flags rules whose alignment falls below a configurable threshold (`--semantic-threshold`, default 0.65). True historical drift (comparing against past MITRE definitions) is Phase 3.b.
-3. **LLM diff proposals** *(planned)* — opt-in, BYOLLM (OpenAI primary, Claude secondary); proposes updated rules for flagged stale entries.
+3. **LLM diff proposals** ✅ — opt-in, BYOLLM via OpenAI structured output; proposes rewritten rules for `semantic_drift` findings. Never auto-applied — every proposal is reviewed manually. Anthropic Claude support deferred to v0.2.
 
 Designed to run in GitHub Actions as a CI gate. No data leaves your environment.
 
