@@ -112,11 +112,31 @@ def test_technique_description_extracted_from_stix(stix_fixture: Path) -> None:
     assert "command and scripting" in t1059.description.lower()
 
 
-def test_technique_description_none_when_missing(stix_fixture: Path) -> None:
-    """Defensive: if a STIX object has no description, the field is None, not ''."""
-    idx = build_index(stix_path=stix_fixture)
-    # Every technique in the fixture happens to have a description, but the
-    # AttackTechnique model must accept None — verified at parse time, not
-    # via fixture. Sanity-check that the descriptions are populated:
-    for tid in ("T1059", "T1059.001"):
-        assert idx.techniques[tid].description is not None
+def test_parse_technique_handles_missing_description() -> None:
+    """Defensive: when the STIX object lacks a description attribute, _parse_technique
+    must produce a DetectionTechnique with description=None — not raise AttributeError.
+
+    Guards against accidentally changing `getattr(stix_obj, "description", None)`
+    to `stix_obj.description` in attack_client._parse_technique.
+    """
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from detect_forge.stale.attack_client import _parse_technique
+
+    # SimpleNamespace gives us an object whose attribute access mirrors a real
+    # stix2 AttackPattern, but we deliberately omit `description`.
+    stix_like = SimpleNamespace(
+        id="attack-pattern--00000000-0000-0000-0000-000000000001",
+        name="Synthetic Technique Without Description",
+        modified=datetime(2025, 1, 1, tzinfo=UTC),
+        external_references=[
+            {"source_name": "mitre-attack", "external_id": "T9999"},
+        ],
+        kill_chain_phases=[],
+        # Intentionally no `description` attribute.
+    )
+    parsed = _parse_technique(stix_like)
+    assert parsed is not None
+    assert parsed.technique_id == "T9999"
+    assert parsed.description is None
