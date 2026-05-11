@@ -58,6 +58,7 @@ def parse_rule_file(path: Path) -> DetectionRule | None:
         return DetectionRule(
             rule_id=raw.get("id"),
             title=raw.get("title", path.stem),
+            description=raw.get("description"),
             status=raw.get("status"),
             rule_date=_parse_rule_date(raw.get("date")),
             modified_date=_parse_rule_date(raw.get("modified")),

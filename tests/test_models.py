@@ -181,6 +181,59 @@ def test_staleness_report_has_severity() -> None:
     assert report.has_severity("low") is False
 
 
+def test_attack_technique_accepts_description() -> None:
+    from datetime import UTC, datetime
+
+    from detect_forge.stale.models import AttackTechnique
+
+    t = AttackTechnique(
+        technique_id="T1059",
+        name="Command and Scripting Interpreter",
+        description="Adversaries may abuse command and script interpreters.",
+        modified=datetime(2025, 1, 1, tzinfo=UTC),
+        is_subtechnique=False,
+        stix_id="attack-pattern--abc",
+    )
+    assert t.description == "Adversaries may abuse command and script interpreters."
+
+
+def test_attack_technique_description_defaults_to_none() -> None:
+    from datetime import UTC, datetime
+
+    from detect_forge.stale.models import AttackTechnique
+
+    t = AttackTechnique(
+        technique_id="T1059",
+        name="Command and Scripting Interpreter",
+        modified=datetime(2025, 1, 1, tzinfo=UTC),
+        is_subtechnique=False,
+        stix_id="attack-pattern--abc",
+    )
+    assert t.description is None
+
+
+def test_detection_rule_accepts_description() -> None:
+    from pathlib import Path
+
+    from detect_forge.stale.models import DetectionRule
+
+    r = DetectionRule(
+        title="t",
+        source_file=Path("/tmp/r.yml"),
+        description="A rule that detects something specific.",
+    )
+    assert r.description == "A rule that detects something specific."
+
+
+def test_detection_rule_description_defaults_to_none() -> None:
+    from pathlib import Path
+
+    from detect_forge.stale.models import DetectionRule
+
+    r = DetectionRule(title="t", source_file=Path("/tmp/r.yml"))
+    assert r.description is None
+
+
 def test_empty_staleness_report_has_no_severity() -> None:
     from datetime import UTC
     from datetime import datetime as _datetime

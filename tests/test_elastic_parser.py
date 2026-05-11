@@ -126,3 +126,35 @@ def test_extract_preserves_source_order() -> None:
         {"technique": [{"id": "T1059", "subtechnique": [{"id": "T1059.001"}]}]},
     ]
     assert _extract_elastic_technique_ids(threats) == ["T1003", "T1059", "T1059.001"]
+
+
+def test_parse_extracts_description(tmp_path: Path) -> None:
+    """Elastic rule descriptions live at rule.description; parser must extract."""
+    p = tmp_path / "with_desc.toml"
+    p.write_text(
+        '[metadata]\n'
+        'creation_date = "2024/01/01"\n'
+        '[rule]\n'
+        'name = "Has Description"\n'
+        'rule_id = "abc123"\n'
+        'description = "Detects suspicious inter-process communication via COM."\n'
+        '[[rule.threat]]\n'
+        '[[rule.threat.technique]]\n'
+        'id = "T1559"\n'
+    )
+    rule = parse_rule_file(p)
+    assert rule is not None
+    assert rule.description == "Detects suspicious inter-process communication via COM."
+
+
+def test_parse_no_description_yields_none(tmp_path: Path) -> None:
+    p = tmp_path / "no_desc.toml"
+    p.write_text(
+        '[metadata]\n'
+        '[rule]\n'
+        'name = "No Description Here"\n'
+        'rule_id = "def456"\n'
+    )
+    rule = parse_rule_file(p)
+    assert rule is not None
+    assert rule.description is None

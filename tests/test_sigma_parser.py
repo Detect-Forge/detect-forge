@@ -95,8 +95,9 @@ def test_parse_rule_dir_finds_all_valid_rules() -> None:
     assert "Bare Rule" in titles
     assert "Credential Dumping" in titles
     assert "Old Deprecated Rule" in titles
+    assert "PowerShell Encoded Command Execution" in titles
     # not_a_sigma_rule.yml is a YAML list, correctly skipped
-    assert len(rules) == 6
+    assert len(rules) == 7
 
 
 def test_parse_rule_dir_empty_dir(tmp_path: Path) -> None:
@@ -158,3 +159,18 @@ def test_extract_ignores_non_string_tags() -> None:
     # YAML can yield ints for malformed tags (e.g., `- 2021-44228` becomes int arithmetic).
     # Must not crash; must skip non-strings silently.
     assert _extract_technique_ids(["attack.t1059", -42223, None, True]) == ["T1059"]
+
+
+def test_parse_rule_extracts_description() -> None:
+    rule = parse_rule_file(FIXTURES / "rule_with_description.yml")
+    assert rule is not None
+    assert rule.description is not None
+    assert "PowerShell" in rule.description
+    assert "EncodedCommand" in rule.description
+
+
+def test_parse_rule_no_description_yields_none() -> None:
+    # rule_with_subtechnique.yml has no `description:` field.
+    rule = parse_rule_file(FIXTURES / "rule_with_subtechnique.yml")
+    assert rule is not None
+    assert rule.description is None

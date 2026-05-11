@@ -12,6 +12,7 @@ class AttackTechnique(BaseModel):
 
     technique_id: str
     name: str
+    description: str | None = None
     modified: datetime
     is_subtechnique: bool
     deprecated: bool = False
@@ -39,6 +40,7 @@ class DetectionRule(BaseModel):
 
     rule_id: str | None = None
     title: str
+    description: str | None = None
     status: str | None = None
     rule_date: date | None = None
     modified_date: date | None = None
