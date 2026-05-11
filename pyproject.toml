@@ -21,9 +21,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Detect-Forge/ttp-staleness"
-Repository = "https://github.com/Detect-Forge/ttp-staleness"
-Issues = "https://github.com/Detect-Forge/ttp-staleness/issues"
+Homepage = "https://github.com/Detect-Forge/detect-forge"
+Repository = "https://github.com/Detect-Forge/detect-forge"
+Issues = "https://github.com/Detect-Forge/detect-forge/issues"
 
 [project.scripts]
 detect-forge = "detect_forge.cli:main"
