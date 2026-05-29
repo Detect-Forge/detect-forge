@@ -2,3 +2,7 @@
 semantic_threshold = 0.65
 llm_model = "gpt-4o-mini"
 max_proposals = 5
+
+[coverage]
+priority_list = ""              # path to custom JSON; empty = built-in CTID default
+gate_on_priority_gaps = true    # exit 2 when priority techniques have no rules
