@@ -116,3 +116,35 @@ def test_coverage_report_aggregates_components() -> None:
     )
     assert report.summary.priority_gap == 0
     assert report.techniques == []
+
+
+def test_public_api_exports_include_required_symbols() -> None:
+    from detect_forge import coverage
+
+    expected = {
+        "CoverageReport",
+        "CoverageState",
+        "CoverageSummary",
+        "MigrationItem",
+        "TacticRollup",
+        "TechniqueCoverage",
+        "scan_coverage",
+    }
+    assert expected.issubset(set(coverage.__all__))
+    # And all are actually importable.
+    for name in expected:
+        assert hasattr(coverage, name)
+
+
+def test_scan_coverage_signature_has_required_kwargs() -> None:
+    import inspect
+
+    from detect_forge.coverage import scan_coverage
+
+    params = inspect.signature(scan_coverage).parameters
+    assert "rule_dir" in params
+    assert "domain" in params
+    assert "cache_dir" in params
+    assert "cache_ttl_hours" in params
+    assert "no_cache" in params
+    assert "priority_list" in params
