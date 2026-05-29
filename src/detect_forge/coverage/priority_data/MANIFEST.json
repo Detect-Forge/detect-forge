@@ -1,0 +1,8 @@
+{
+  "list_name": "CTID Top ATT&CK Techniques 2024",
+  "source": "https://top-attack-techniques.mitre-engenuity.org/",
+  "fetched_at": "2026-05-29T00:00:00Z",
+  "license": "Apache-2.0",
+  "filename": "ctid_top_techniques_2024.json",
+  "notes": "Hand-curated representative subset due to no public API on the CTID site. Each annual refresh ships as a new file; the active default is selected by PRIORITY_DEFAULT_FILENAME in coverage/priority.py."
+}

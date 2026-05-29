@@ -46,6 +46,8 @@ packages = ["src/detect_forge"]
 include = [
     "src/detect_forge/stale/templates/*",
     "src/detect_forge/stale/prompts/*",
+    "src/detect_forge/coverage/templates/*",
+    "src/detect_forge/coverage/priority_data/*.json",
 ]
 
 [tool.ruff]
