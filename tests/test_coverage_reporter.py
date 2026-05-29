@@ -221,3 +221,74 @@ def test_html_render_shows_migration_section_when_present() -> None:
     assert "Migration" in out
     assert "T1086" in out
     assert "T1059.001" in out
+
+
+def test_navigator_render_emits_required_top_level_keys() -> None:
+    import json
+
+    from detect_forge.coverage.reporter import render
+
+    report = _make_report()
+    out = render(report, output_format="navigator")
+    parsed = json.loads(out)
+    assert "name" in parsed
+    assert "domain" in parsed
+    assert "versions" in parsed
+    assert "techniques" in parsed
+    assert parsed["domain"] == "enterprise-attack"
+
+
+def test_navigator_render_maps_state_to_color() -> None:
+    import json
+
+    from detect_forge.coverage.reporter import render
+
+    full = _make_technique(technique_id="T1059.001", state="full")
+    shallow = _make_technique(technique_id="T1059.002", state="shallow")
+    gap = _make_technique(technique_id="T1059.003", state="gap")
+    priority_gap = _make_technique(
+        technique_id="T1078", state="gap", is_priority=True,
+    )
+    report = _make_report(
+        techniques=[full, shallow, gap, priority_gap], priority_gap=1
+    )
+    out = render(report, output_format="navigator")
+    parsed = json.loads(out)
+    by_id = {t["techniqueID"]: t for t in parsed["techniques"]}
+    assert by_id["T1059.001"]["color"] == "#4caf50"  # full
+    assert by_id["T1059.002"]["color"] == "#ffeb3b"  # shallow
+    assert by_id["T1059.003"]["color"] == "#f44336"  # gap
+    assert by_id["T1078"]["color"] == "#d32f2f"  # priority gap
+
+
+def test_navigator_render_includes_rule_sources_as_metadata() -> None:
+    import json
+
+    from detect_forge.coverage.reporter import render
+
+    tech = _make_technique(
+        technique_id="T1059.001",
+        state="full",
+        rule_sources=[Path("/rules/win_ps.yml"), Path("/rules/another.yml")],
+    )
+    report = _make_report(techniques=[tech])
+    out = render(report, output_format="navigator")
+    parsed = json.loads(out)
+    nav_tech = parsed["techniques"][0]
+    metadata = nav_tech.get("metadata", [])
+    rule_names = [m["value"] for m in metadata if m["name"] == "rule"]
+    assert "win_ps.yml" in rule_names
+    assert "another.yml" in rule_names
+
+
+def test_navigator_render_includes_legend_items() -> None:
+    import json
+
+    from detect_forge.coverage.reporter import render
+
+    report = _make_report()
+    out = render(report, output_format="navigator")
+    parsed = json.loads(out)
+    legend_labels = [item["label"] for item in parsed.get("legendItems", [])]
+    assert any("Priority gap" in lbl for lbl in legend_labels)
+    assert any(lbl == "Full" for lbl in legend_labels)
