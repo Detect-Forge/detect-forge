@@ -21,13 +21,6 @@ def test_backtest_stub_message_and_exit() -> None:
     assert stdout == ""
 
 
-def test_coverage_stub_message_and_exit() -> None:
-    code, _stdout, stderr = _invoke(["coverage"])
-    assert code == RESERVED
-    assert "'coverage' is not yet implemented" in stderr
-    assert "Q3 2026" in stderr
-
-
 def test_cti_group_help_shows_ingest() -> None:
     code, stdout, _stderr = _invoke(["cti", "--help"])
     assert code == 0
