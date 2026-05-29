@@ -36,6 +36,15 @@ class StaleConfig(BaseModel):
         return v
 
 
+class CoverageConfig(BaseModel):
+    """Settings for the ``coverage`` subcommand sourced from ``[coverage]`` in the config file."""
+
+    priority_list: str = ""
+    """Path to a custom priority list JSON. Empty string means "use the built-in CTID default"."""
+    gate_on_priority_gaps: bool = True
+    """When True, exit code 2 fires if any priority-list technique has gap state."""
+
+
 def find_config_file(start: Path | None = None) -> Path | None:
     """Walk upward from ``start`` (default: CWD) until a ``.detect-forge.toml``
     is found, or a ``.git`` directory boundary is reached, or the filesystem root.
@@ -80,3 +89,27 @@ def load_stale_config_or_defaults(start: Path | None = None) -> StaleConfig:
     if path is None:
         return StaleConfig()
     return load_stale_config(path)
+
+
+def load_coverage_config(path: Path) -> CoverageConfig:
+    """Parse a ``.detect-forge.toml`` file and return the validated CoverageConfig.
+
+    Missing ``[coverage]`` section is fine — returns defaults. Invalid values
+    raise ``pydantic.ValidationError`` (subclass of ``ValueError``).
+    """
+    raw: dict[str, Any] = tomllib.loads(path.read_text(encoding="utf-8"))
+    coverage_section = raw.get("coverage", {})
+    if not isinstance(coverage_section, dict):
+        coverage_section = {}
+    return CoverageConfig(**coverage_section)
+
+
+def load_coverage_config_or_defaults(start: Path | None = None) -> CoverageConfig:
+    """Discover a ``.detect-forge.toml`` upward from ``start`` and load it.
+
+    If no config is found, returns a default ``CoverageConfig``.
+    """
+    path = find_config_file(start)
+    if path is None:
+        return CoverageConfig()
+    return load_coverage_config(path)

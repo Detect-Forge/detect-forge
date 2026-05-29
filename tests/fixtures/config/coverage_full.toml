@@ -1,0 +1,3 @@
+[coverage]
+priority_list = "/tmp/acme_priority.json"
+gate_on_priority_gaps = false
