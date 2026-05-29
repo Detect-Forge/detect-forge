@@ -95,3 +95,38 @@ def test_backtest_report_defaults_to_empty_lists() -> None:
     report = BacktestReport(summary=summary)
     assert report.rule_results == []
     assert report.technique_rollups == []
+
+
+def test_matcher_protocol_signature() -> None:
+    """Matcher protocol has supports() and match()."""
+    import inspect
+
+    from detect_forge.backtest.matchers._base import Matcher
+
+    members = dict(inspect.getmembers(Matcher))
+    assert "supports" in members
+    assert "match" in members
+
+
+def test_select_matcher_routes_by_suffix(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from pathlib import Path
+
+    from detect_forge.backtest.matchers._base import select_matcher
+    from detect_forge.stale.models import DetectionRule
+
+    sigma_rule = DetectionRule(
+        title="s",
+        technique_ids=["T1059"],
+        source_file=Path("/r.yml"),
+        raw_tags=[],
+    )
+    elastic_rule = DetectionRule(
+        title="e",
+        technique_ids=["T1059"],
+        source_file=Path("/r.toml"),
+        raw_tags=[],
+    )
+    _, fmt_sigma = select_matcher(sigma_rule)
+    _, fmt_elastic = select_matcher(elastic_rule)
+    assert fmt_sigma == "sigma"
+    assert fmt_elastic == "elastic"
