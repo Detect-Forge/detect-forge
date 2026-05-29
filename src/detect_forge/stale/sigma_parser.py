@@ -42,7 +42,8 @@ def parse_rule_file(path: Path) -> DetectionRule | None:
     or fails DetectionRule validation.
     """
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+        raw = yaml.safe_load(text)
     except (yaml.YAMLError, OSError) as exc:
         log.warning("Failed to read %s: %s", path, exc)
         return None
@@ -65,6 +66,7 @@ def parse_rule_file(path: Path) -> DetectionRule | None:
             technique_ids=technique_ids,
             source_file=path.resolve(),
             raw_tags=tags,
+            raw_yaml=text,
         )
     except ValidationError as exc:
         log.warning("Validation error parsing %s: %s", path, exc)
