@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import click
-from click.core import ParameterSource
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from ..config import load_coverage_config_or_defaults
@@ -76,16 +75,12 @@ def coverage_cmd(
     effective_no_cache = no_cache or settings.no_cache
 
     # Resolve priority list: --priority-list (CLI) > [coverage].priority_list (file) > built-in.
-    # The CLI flag is non-None only when the user typed it; Click's default is None.
+    # Click's default is None, so a non-None value means the user typed --priority-list.
     effective_priority: Path | None = priority_list
-    if (
-        effective_priority is None
-        and ctx.get_parameter_source("priority_list") != ParameterSource.COMMANDLINE
-        and cov_cfg.priority_list
-    ):
+    if effective_priority is None and cov_cfg.priority_list:
         effective_priority = Path(cov_cfg.priority_list)
 
-    # Gating: env > CLI --no-gate > [coverage].gate_on_priority_gaps > default True.
+    # Gating precedence: CLI --no-gate > [coverage].gate_on_priority_gaps > default True.
     effective_gate = cov_cfg.gate_on_priority_gaps
     if no_gate:
         effective_gate = False
