@@ -137,3 +137,42 @@ def test_terminal_render_shows_migration_needed_section_when_present() -> None:
     assert "Migration" in out or "migration" in out.lower()
     assert "T1086" in out
     assert "T1059.001" in out
+
+
+def test_json_render_is_valid_json_with_required_keys() -> None:
+    import json
+
+    from detect_forge.coverage.reporter import render
+
+    report = _make_report()
+    out = render(report, output_format="json")
+    parsed = json.loads(out)
+    assert "summary" in parsed
+    assert "techniques" in parsed
+    assert "tactic_rollups" in parsed
+    assert "migrations" in parsed
+    assert parsed["summary"]["attack_domain"] == "enterprise-attack"
+
+
+def test_json_render_includes_per_technique_details() -> None:
+    import json
+
+    from detect_forge.coverage.reporter import render
+
+    tech = _make_technique(technique_id="T1078", state="gap", is_priority=True)
+    report = _make_report(techniques=[tech], priority_gap=1)
+    out = render(report, output_format="json")
+    parsed = json.loads(out)
+    assert parsed["techniques"][0]["technique_id"] == "T1078"
+    assert parsed["techniques"][0]["state"] == "gap"
+    assert parsed["techniques"][0]["is_priority"] is True
+
+
+def test_json_render_unknown_format_raises() -> None:
+    import pytest
+
+    from detect_forge.coverage.reporter import render
+
+    report = _make_report()
+    with pytest.raises(ValueError, match="unknown output_format"):
+        render(report, output_format="ascii-art")

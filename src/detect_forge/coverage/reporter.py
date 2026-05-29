@@ -23,6 +23,8 @@ def render(report: CoverageReport, output_format: str = "terminal") -> str:
     """Render a CoverageReport in the requested format. Raises on unknown format."""
     if output_format == "terminal":
         return _render_terminal(report)
+    if output_format == "json":
+        return report.model_dump_json(indent=2)
     raise ValueError(f"unknown output_format: {output_format!r}")
 
 
