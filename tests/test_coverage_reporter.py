@@ -176,3 +176,48 @@ def test_json_render_unknown_format_raises() -> None:
     report = _make_report()
     with pytest.raises(ValueError, match="unknown output_format"):
         render(report, output_format="ascii-art")
+
+
+def test_html_render_includes_doctype_and_title() -> None:
+    from detect_forge.coverage.reporter import render
+
+    report = _make_report()
+    out = render(report, output_format="html")
+    assert "<!DOCTYPE html>" in out
+    assert "Detect-Forge Coverage Report" in out
+
+
+def test_html_render_includes_summary_stat_cards() -> None:
+    from detect_forge.coverage.reporter import render
+
+    tech = _make_technique(technique_id="T1078", state="gap", is_priority=True)
+    report = _make_report(techniques=[tech], priority_gap=1)
+    out = render(report, output_format="html")
+    assert "Priority GAPS" in out or "Priority Gap" in out
+    assert "T1078" in out
+
+
+def test_html_render_omits_priority_gap_card_when_zero() -> None:
+    from detect_forge.coverage.reporter import render
+
+    report = _make_report(priority_gap=0)
+    out = render(report, output_format="html")
+    assert "← gates CI" not in out and "gates CI" not in out
+
+
+def test_html_render_shows_migration_section_when_present() -> None:
+    from detect_forge.coverage.models import MigrationItem
+    from detect_forge.coverage.reporter import render
+
+    item = MigrationItem(
+        rule_source=Path("/rules/old.yml"),
+        rule_title="Old Rule",
+        deprecated_technique_id="T1086",
+        reason="revoked",
+        replacement_id="T1059.001",
+    )
+    report = _make_report(migrations=[item])
+    out = render(report, output_format="html")
+    assert "Migration" in out
+    assert "T1086" in out
+    assert "T1059.001" in out
