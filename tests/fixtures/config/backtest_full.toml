@@ -1,0 +1,5 @@
+[backtest]
+gate_on_priority_silence = false
+gate_on_broken_rules = true
+mordor_source = "/tmp/local-checkout"
+platform = "linux"

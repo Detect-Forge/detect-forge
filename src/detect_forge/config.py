@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -43,6 +43,19 @@ class CoverageConfig(BaseModel):
     """Path to a custom priority list JSON. Empty string means "use the built-in CTID default"."""
     gate_on_priority_gaps: bool = True
     """When True, exit code 2 fires if any priority-list technique has gap state."""
+
+
+class BacktestConfig(BaseModel):
+    """Settings for the ``backtest`` subcommand sourced from ``[backtest]`` in the config file."""
+
+    gate_on_priority_silence: bool = True
+    """When True, exit 2 if any priority-list technique has zero firing rules."""
+    gate_on_broken_rules: bool = True
+    """When True, exit 2 if any rule is silent on every tested dataset."""
+    mordor_source: str = ""
+    """Path to a local Security-Datasets checkout. Empty string means fetch on demand."""
+    platform: Literal["windows", "linux", "macos", "all"] = "all"
+    """Filter Mordor datasets by platform."""
 
 
 def find_config_file(start: Path | None = None) -> Path | None:
@@ -113,3 +126,27 @@ def load_coverage_config_or_defaults(start: Path | None = None) -> CoverageConfi
     if path is None:
         return CoverageConfig()
     return load_coverage_config(path)
+
+
+def load_backtest_config(path: Path) -> BacktestConfig:
+    """Parse a ``.detect-forge.toml`` file and return the validated BacktestConfig.
+
+    Missing ``[backtest]`` section is fine — returns defaults. Invalid values
+    raise ``pydantic.ValidationError`` (subclass of ``ValueError``).
+    """
+    raw: dict[str, Any] = tomllib.loads(path.read_text(encoding="utf-8"))
+    backtest_section = raw.get("backtest", {})
+    if not isinstance(backtest_section, dict):
+        backtest_section = {}
+    return BacktestConfig(**backtest_section)
+
+
+def load_backtest_config_or_defaults(start: Path | None = None) -> BacktestConfig:
+    """Discover a ``.detect-forge.toml`` upward from ``start`` and load the [backtest] section.
+
+    Returns a default ``BacktestConfig`` when no file is found.
+    """
+    path = find_config_file(start)
+    if path is None:
+        return BacktestConfig()
+    return load_backtest_config(path)

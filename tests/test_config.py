@@ -222,3 +222,79 @@ def test_load_or_defaults_coverage_reads_discovered_file(
     cfg = load_coverage_config_or_defaults()
     assert cfg.priority_list == "/etc/priority.json"
     assert cfg.gate_on_priority_gaps is False
+
+
+def test_backtest_config_defaults() -> None:
+    from detect_forge.config import BacktestConfig
+
+    cfg = BacktestConfig()
+    assert cfg.gate_on_priority_silence is True
+    assert cfg.gate_on_broken_rules is True
+    assert cfg.mordor_source == ""
+    assert cfg.platform == "all"
+
+
+def test_backtest_config_accepts_values() -> None:
+    from detect_forge.config import BacktestConfig
+
+    cfg = BacktestConfig(
+        gate_on_priority_silence=False,
+        gate_on_broken_rules=False,
+        mordor_source="/tmp/sd",
+        platform="windows",
+    )
+    assert cfg.gate_on_priority_silence is False
+    assert cfg.gate_on_broken_rules is False
+    assert cfg.mordor_source == "/tmp/sd"
+    assert cfg.platform == "windows"
+
+
+def test_backtest_config_rejects_unknown_platform() -> None:
+    import pytest
+
+    from detect_forge.config import BacktestConfig
+
+    with pytest.raises(ValueError):
+        BacktestConfig(platform="freebsd")  # type: ignore[arg-type]
+
+
+def test_load_backtest_config_from_full_file() -> None:
+    from pathlib import Path
+
+    from detect_forge.config import load_backtest_config
+
+    p = Path(__file__).parent / "fixtures" / "config" / "backtest_full.toml"
+    cfg = load_backtest_config(p)
+    assert cfg.gate_on_priority_silence is False
+    assert cfg.platform == "linux"
+
+
+def test_load_backtest_config_from_minimal_file_uses_defaults() -> None:
+    from pathlib import Path
+
+    from detect_forge.config import load_backtest_config
+
+    p = Path(__file__).parent / "fixtures" / "config" / "minimal.toml"
+    cfg = load_backtest_config(p)
+    assert cfg.gate_on_priority_silence is True
+    assert cfg.platform == "all"
+
+
+def test_load_or_defaults_backtest_reads_discovered_file(
+    tmp_path,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    from detect_forge.config import load_backtest_config_or_defaults
+
+    cfg_file = tmp_path / ".detect-forge.toml"
+    cfg_file.write_text(
+        "[backtest]\n"
+        "gate_on_priority_silence = false\n"
+        'platform = "macos"\n'
+    )
+    nested = tmp_path / "x" / "y"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+    cfg = load_backtest_config_or_defaults()
+    assert cfg.gate_on_priority_silence is False
+    assert cfg.platform == "macos"
