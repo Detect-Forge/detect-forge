@@ -1,0 +1,31 @@
+{
+  "version": "test",
+  "source": "test fixture",
+  "fetched_at": "2026-05-29T00:00:00Z",
+  "license": "MIT",
+  "scope": "test only",
+  "datasets": {
+    "T1059.001": [
+      {
+        "dataset_id": "synthetic_ps",
+        "url": "https://example.invalid/synthetic_dataset.zip",
+        "platform": "windows",
+        "format": "json",
+        "size_bytes": 256,
+        "event_count": 3,
+        "sha256": ""
+      }
+    ],
+    "T1078": [
+      {
+        "dataset_id": "synthetic_linux",
+        "url": "https://example.invalid/another.zip",
+        "platform": "linux",
+        "format": "json",
+        "size_bytes": 128,
+        "event_count": 1,
+        "sha256": ""
+      }
+    ]
+  }
+}

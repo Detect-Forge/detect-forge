@@ -1,0 +1,31 @@
+{
+  "version": "2026.05",
+  "source": "https://github.com/OTRF/Security-Datasets",
+  "fetched_at": "2026-05-29T00:00:00Z",
+  "license": "MIT",
+  "scope": "atomic only (compound deferred to v0.2)",
+  "datasets": {
+    "T1059.001": [
+      {
+        "dataset_id": "empire_invoke_psinject",
+        "url": "https://raw.githubusercontent.com/OTRF/Security-Datasets/master/datasets/atomic/windows/execution/host/empire_invoke_psinject.zip",
+        "platform": "windows",
+        "format": "json",
+        "size_bytes": 524288,
+        "event_count": 1247,
+        "sha256": ""
+      }
+    ],
+    "T1003.001": [
+      {
+        "dataset_id": "empire_mimikatz_logonpasswords",
+        "url": "https://raw.githubusercontent.com/OTRF/Security-Datasets/master/datasets/atomic/windows/credential_access/host/empire_mimikatz_logonpasswords.zip",
+        "platform": "windows",
+        "format": "json",
+        "size_bytes": 1048576,
+        "event_count": 3104,
+        "sha256": ""
+      }
+    ]
+  }
+}
