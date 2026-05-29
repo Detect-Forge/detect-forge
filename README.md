@@ -16,7 +16,7 @@ Designed to run in GitHub Actions as a CI gate. No data leaves your environment.
 
 ## Status
 
-🚀 May 23, 2026 launch — `stale` ships with all three scoring dimensions: timestamp drift, semantic drift (Phase 3.a), and LLM diff proposals (Phase 4). True historical drift (Phase 3.b) deferred to v0.2. Other subcommands (`backtest`, `coverage`, `cti ingest`, `audit`) are registered as stubs and will ship in subsequent releases.
+🚀 May 23, 2026 launch — `stale` ships with all three scoring dimensions: timestamp drift, semantic drift (Phase 3.a), and LLM diff proposals (Phase 4). True historical drift (Phase 3.b) deferred to v0.2. `coverage` ships with full/shallow/gap analysis, CTID-weighted priority gating, and ATT&CK Navigator export. Remaining subcommands (`backtest`, `cti ingest`, `audit`) are registered as stubs.
 
 ## Requirements
 
@@ -44,7 +44,7 @@ detect-forge stale path/to/rules
 |---|---|---|
 | `stale` | ✅ Available | Score detection rules for ATT&CK technique staleness. |
 | `backtest` | 📅 Jun 28, 2026 | Adversarial replay (Types 3 + 4). |
-| `coverage` | 📝 Q3 2026 | Coverage gap mapping (Type 6a expansion). |
+| `coverage` | ✅ Available | Coverage gap mapping (Type 6a expansion). |
 | `cti ingest` | 📝 Q3–Q4 2026 | CTI-to-detection generation. |
 | `audit` | 📝 Reserved | Runs every check once 2+ subcommands ship. |
 
@@ -155,6 +155,62 @@ For each candidate rule, you get a terminal panel with the rule filename, the mo
 - They don't run if `OPENAI_API_KEY` is unset.
 - They use only the rule's natural-language fields and your current ATT&CK technique description — no telemetry leaves your environment beyond the OpenAI API call.
 - They're not a substitute for human review. The model's `confidence` field is self-reported and unreliable — treat every proposal as a draft.
+
+### Coverage gap analysis
+
+`detect-forge coverage` maps your detection rule corpus to the ATT&CK matrix and reports which techniques have full, shallow, or no coverage. Priority techniques (by default, a CTID-style top-25 list) drive CI gating.
+
+#### Quick start
+
+```bash
+detect-forge coverage ./rules
+detect-forge coverage ./rules --format html --output coverage.html
+detect-forge coverage ./rules --format navigator --output layer.json
+```
+
+The Navigator JSON output drops directly into https://mitre-attack.github.io/attack-navigator/ for a heatmap view.
+
+#### Coverage states
+
+| State | Meaning |
+|---|---|
+| **full** | At least one rule is tagged with this exact technique ID. |
+| **shallow** | Only the parent technique is tagged (e.g. rule tags `T1059`; sub `T1059.001` is shallow). |
+| **gap** | No rules reference this technique at any level. |
+
+#### Configuration
+
+Settings live in `.detect-forge.toml` `[coverage]`. A starter section ships at the repo root.
+
+```toml
+[coverage]
+priority_list = ""              # path to custom JSON; empty = built-in CTID default
+gate_on_priority_gaps = true    # exit 2 when priority techniques have no rules
+```
+
+#### Custom priority list
+
+Drop a JSON file with your own technique IDs (industry threat model, internal red-team priorities, etc.):
+
+```json
+{
+  "name": "Acme Corp Priorities 2026",
+  "technique_ids": ["T1078", "T1190", "T1059.001", "T1486"]
+}
+```
+
+Point at it via `[coverage] priority_list = "/path/to/list.json"` or `--priority-list /path/to/list.json` for a one-off scan.
+
+#### CI gating
+
+When any priority-list technique has gap status (no rules at all), the command exits with code 2. Suppress with `--no-gate` for informational scans, or set `gate_on_priority_gaps = false` in config for permanent off.
+
+#### What coverage does NOT do (v0.1)
+
+- No coverage diff over time — that's git-for-coverage, deferred to v0.2.
+- No threat-intel weighting from `cti ingest` — composes with that subcommand when it ships.
+- No per-rule-status filtering (e.g. count only `status: stable` rules).
+- No rule-quality weighting (untested rule = same weight as a battle-tested one).
 
 ## Python API
 

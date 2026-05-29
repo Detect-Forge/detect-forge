@@ -374,3 +374,122 @@ def test_rule_score_accepts_proposals() -> None:
     )
     assert len(score.proposals) == 1
     assert score.proposals[0].confidence == 0.5
+
+
+def test_attack_technique_parent_id_defaults_to_none() -> None:
+    from datetime import UTC, datetime
+
+    from detect_forge.stale.models import AttackTechnique
+
+    t = AttackTechnique(
+        technique_id="T1059",
+        name="Command and Scripting Interpreter",
+        modified=datetime.now(UTC),
+        is_subtechnique=False,
+        stix_id="attack-pattern--test",
+    )
+    assert t.parent_id is None
+    assert t.replacement_id is None
+
+
+def test_attack_technique_parent_id_holds_value() -> None:
+    from datetime import UTC, datetime
+
+    from detect_forge.stale.models import AttackTechnique
+
+    t = AttackTechnique(
+        technique_id="T1059.001",
+        name="PowerShell",
+        modified=datetime.now(UTC),
+        is_subtechnique=True,
+        parent_id="T1059",
+        stix_id="attack-pattern--test-sub",
+    )
+    assert t.parent_id == "T1059"
+
+
+def test_attack_technique_replacement_id_holds_value() -> None:
+    from datetime import UTC, datetime
+
+    from detect_forge.stale.models import AttackTechnique
+
+    t = AttackTechnique(
+        technique_id="T1086",
+        name="PowerShell (revoked)",
+        modified=datetime.now(UTC),
+        is_subtechnique=False,
+        revoked=True,
+        replacement_id="T1059.001",
+        stix_id="attack-pattern--test-revoked",
+    )
+    assert t.replacement_id == "T1059.001"
+
+
+def test_attack_index_subtechniques_of_returns_children() -> None:
+    from datetime import UTC, datetime
+
+    from detect_forge.stale.models import AttackIndex, AttackTechnique
+
+    now = datetime.now(UTC)
+    parent = AttackTechnique(
+        technique_id="T1059",
+        name="Command and Scripting Interpreter",
+        modified=now,
+        is_subtechnique=False,
+        stix_id="ap--p",
+    )
+    sub_a = AttackTechnique(
+        technique_id="T1059.001",
+        name="PowerShell",
+        modified=now,
+        is_subtechnique=True,
+        parent_id="T1059",
+        stix_id="ap--sa",
+    )
+    sub_b = AttackTechnique(
+        technique_id="T1059.002",
+        name="AppleScript",
+        modified=now,
+        is_subtechnique=True,
+        parent_id="T1059",
+        stix_id="ap--sb",
+    )
+    other = AttackTechnique(
+        technique_id="T1078",
+        name="Valid Accounts",
+        modified=now,
+        is_subtechnique=False,
+        stix_id="ap--o",
+    )
+
+    idx = AttackIndex(
+        techniques={
+            "T1059": parent,
+            "T1059.001": sub_a,
+            "T1059.002": sub_b,
+            "T1078": other,
+        },
+        fetched_at=now,
+    )
+    assert set(idx.subtechniques_of("T1059")) == {"T1059.001", "T1059.002"}
+    assert idx.subtechniques_of("T1078") == []
+    assert idx.subtechniques_of("T9999") == []  # unknown parent
+
+
+def test_attack_index_subtechniques_of_ignores_subtechnique_input() -> None:
+    """Passing a sub-technique ID returns []; only parents have children."""
+    from datetime import UTC, datetime
+
+    from detect_forge.stale.models import AttackIndex, AttackTechnique
+
+    now = datetime.now(UTC)
+    sub = AttackTechnique(
+        technique_id="T1059.001",
+        name="PowerShell",
+        modified=now,
+        is_subtechnique=True,
+        parent_id="T1059",
+        stix_id="ap--sa",
+    )
+    idx = AttackIndex(techniques={"T1059.001": sub}, fetched_at=now)
+    assert idx.subtechniques_of("T1059.001") == []

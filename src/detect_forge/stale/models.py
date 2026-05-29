@@ -19,6 +19,12 @@ class AttackTechnique(BaseModel):
     revoked: bool = False
     tactic_ids: list[str] = Field(default_factory=list)
     stix_id: str
+    parent_id: str | None = None
+    """For a sub-technique, the parent's technique_id (e.g. "T1059" for "T1059.001").
+    None for parent techniques."""
+    replacement_id: str | None = None
+    """If this technique was revoked-and-replaced, the technique_id of the replacement.
+    None when not revoked or when no replacement was specified."""
 
 
 class AttackIndex(BaseModel):
@@ -29,6 +35,21 @@ class AttackIndex(BaseModel):
     # TODO: populated from x-mitre-collection identity object in a future task.
     attack_version: str | None = None
     source_domain: str = "enterprise-attack"
+
+    def subtechniques_of(self, parent_id: str) -> list[str]:
+        """Return the technique_ids of sub-techniques whose parent is ``parent_id``.
+
+        Returns an empty list if ``parent_id`` is not in the index, is itself a
+        sub-technique, or has no children.
+        """
+        parent = self.techniques.get(parent_id)
+        if parent is None or parent.is_subtechnique:
+            return []
+        return [
+            tid
+            for tid, t in self.techniques.items()
+            if t.is_subtechnique and t.parent_id == parent_id
+        ]
 
 
 class DetectionRule(BaseModel):

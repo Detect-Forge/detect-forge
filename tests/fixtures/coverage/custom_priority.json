@@ -1,0 +1,6 @@
+{
+  "name": "Test Priority List",
+  "version": "1.0",
+  "source": "Test fixture",
+  "technique_ids": ["T1059.001", "T1078", "T1190"]
+}

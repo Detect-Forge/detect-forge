@@ -138,3 +138,87 @@ def test_load_or_defaults_reads_discovered_file(tmp_path: Path, monkeypatch) -> 
     monkeypatch.chdir(nested)
     cfg = load_stale_config_or_defaults()
     assert cfg.semantic_threshold == 0.42
+
+
+def test_coverage_config_defaults() -> None:
+    from detect_forge.config import CoverageConfig
+
+    cfg = CoverageConfig()
+    assert cfg.priority_list == ""
+    assert cfg.gate_on_priority_gaps is True
+
+
+def test_coverage_config_accepts_values() -> None:
+    from detect_forge.config import CoverageConfig
+
+    cfg = CoverageConfig(priority_list="/tmp/custom.json", gate_on_priority_gaps=False)
+    assert cfg.priority_list == "/tmp/custom.json"
+    assert cfg.gate_on_priority_gaps is False
+
+
+def test_load_coverage_config_from_minimal_file() -> None:
+    from pathlib import Path
+
+    from detect_forge.config import load_coverage_config
+
+    p = Path(__file__).parent / "fixtures" / "config" / "minimal.toml"
+    cfg = load_coverage_config(p)
+    assert cfg.priority_list == ""
+    assert cfg.gate_on_priority_gaps is True
+
+
+def test_load_coverage_config_from_full_file() -> None:
+    from pathlib import Path
+
+    from detect_forge.config import load_coverage_config
+
+    p = Path(__file__).parent / "fixtures" / "config" / "coverage_full.toml"
+    cfg = load_coverage_config(p)
+    assert cfg.priority_list == "/tmp/acme_priority.json"
+    assert cfg.gate_on_priority_gaps is False
+
+
+def test_load_coverage_config_invalid_raises() -> None:
+    from pathlib import Path
+
+    import pytest
+
+    from detect_forge.config import load_coverage_config
+
+    p = Path(__file__).parent / "fixtures" / "config" / "coverage_invalid.toml"
+    with pytest.raises(ValueError):
+        load_coverage_config(p)
+
+
+def test_load_or_defaults_coverage_uses_defaults_when_no_file(
+    tmp_path,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    from detect_forge.config import load_coverage_config_or_defaults
+
+    nested = tmp_path / "x"
+    nested.mkdir()
+    monkeypatch.chdir(nested)
+    cfg = load_coverage_config_or_defaults()
+    assert cfg.priority_list == ""
+    assert cfg.gate_on_priority_gaps is True
+
+
+def test_load_or_defaults_coverage_reads_discovered_file(
+    tmp_path,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    from detect_forge.config import load_coverage_config_or_defaults
+
+    cfg_file = tmp_path / ".detect-forge.toml"
+    cfg_file.write_text(
+        "[coverage]\n"
+        'priority_list = "/etc/priority.json"\n'
+        "gate_on_priority_gaps = false\n"
+    )
+    nested = tmp_path / "x" / "y"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+    cfg = load_coverage_config_or_defaults()
+    assert cfg.priority_list == "/etc/priority.json"
+    assert cfg.gate_on_priority_gaps is False

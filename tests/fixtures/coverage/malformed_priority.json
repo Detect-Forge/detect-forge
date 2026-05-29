@@ -1,0 +1,4 @@
+{
+  "name": "Malformed",
+  "technique_ids": ["not-a-valid-id", "T1059.001"]
+}

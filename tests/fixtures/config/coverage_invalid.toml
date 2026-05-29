@@ -1,0 +1,2 @@
+[coverage]
+gate_on_priority_gaps = "not-a-bool"

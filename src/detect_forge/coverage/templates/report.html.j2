@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Detect-Forge Coverage Report — {{ summary.generated_at.date() }}</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 2rem auto; padding: 0 1rem; background: #0f1117; color: #e2e8f0; }
+  h1 { margin-bottom: 1rem; }
+  h2 { margin-top: 2rem; margin-bottom: 1rem; }
+  .stats { background: #1e2333; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; display: flex; gap: 2rem; flex-wrap: wrap; }
+  .stat { text-align: center; }
+  .stat .value { font-size: 2rem; font-weight: bold; }
+  .stat .label { font-size: 0.875rem; color: #a0aec0; }
+  .full { color: #68d391; }
+  .shallow { color: #f6e05e; }
+  .gap { color: #fc8181; }
+  .priority-gap { color: #fc5050; font-weight: bold; }
+  .meta { color: #a0aec0; font-size: 0.875rem; margin-bottom: 2rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  th { background: #1e2333; padding: 0.75rem; text-align: left; }
+  td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #2d3748; }
+  tr:hover { background: #1a2035; }
+  .gates-ci { background: #742a2a; color: #fc8181; padding: 4px 10px; border-radius: 4px; font-weight: bold; display: inline-block; margin-left: 1rem; }
+
+  .gaps-list { margin: 0; padding-left: 1.25rem; }
+  .gaps-list li { margin-bottom: 0.4rem; }
+  .gaps-list code { background: #1e2333; padding: 2px 6px; border-radius: 4px; color: #fc8181; }
+
+  .migration { background: #1e2333; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; border-left: 4px solid #f6e05e; }
+  .migration .filename { font-weight: bold; color: #e2e8f0; }
+  .migration .arrow { color: #a0aec0; margin: 0 0.5rem; }
+  .migration .tid { color: #fc8181; font-family: monospace; }
+  .migration .reason { color: #f6e05e; font-style: italic; }
+</style>
+</head>
+<body>
+<h1>Detect-Forge Coverage Report</h1>
+<div class="stats">
+  <div class="stat"><div class="value">{{ summary.total_techniques }}</div><div class="label">In scope</div></div>
+  <div class="stat"><div class="value full">{{ summary.full }}</div><div class="label">Full</div></div>
+  <div class="stat"><div class="value shallow">{{ summary.shallow }}</div><div class="label">Shallow</div></div>
+  <div class="stat"><div class="value gap">{{ summary.gap }}</div><div class="label">Gap</div></div>
+  <div class="stat"><div class="value priority-gap">{{ summary.priority_gap }}</div><div class="label">Priority GAPS{% if summary.priority_gap %} <span class="gates-ci">gates CI</span>{% endif %}</div></div>
+  <div class="stat"><div class="value">{{ summary.rules_parsed }}</div><div class="label">Rules parsed</div></div>
+</div>
+<p class="meta">ATT&amp;CK domain: <strong>{{ summary.attack_domain }}</strong> &middot; Fetched: {{ summary.attack_fetched_at.strftime('%Y-%m-%d %H:%M UTC') }} &middot; Generated: {{ summary.generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
+
+{% if tactic_rollups %}
+<h2>Per-tactic coverage</h2>
+<table>
+<thead><tr>
+  <th>Tactic</th><th>Total</th><th>Full</th><th>Shallow</th><th>Gap</th><th>Priority Gap</th>
+</tr></thead>
+<tbody>
+{% for r in tactic_rollups %}
+<tr>
+  <td>{{ r.tactic_name }} <span class="meta">({{ r.tactic_id }})</span></td>
+  <td>{{ r.total_techniques }}</td>
+  <td class="full">{{ r.full_count }}</td>
+  <td class="shallow">{{ r.shallow_count }}</td>
+  <td class="gap">{{ r.gap_count }}</td>
+  <td class="priority-gap">{{ r.priority_gap_count }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endif %}
+
+{% set priority_gaps = techniques | selectattr('is_priority') | selectattr('state', 'equalto', 'gap') | list %}
+{% if priority_gaps %}
+<h2>Priority gaps (CI-gating)</h2>
+<ul class="gaps-list">
+{% for t in priority_gaps %}
+  <li><code>{{ t.technique_id }}</code> &mdash; {{ t.technique_name }}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+{% if migrations %}
+<h2>Migration needed</h2>
+{% for m in migrations %}
+<div class="migration">
+  <span class="filename">{{ m.rule_source.name }}</span>
+  <span class="arrow">&rarr;</span>
+  <span class="tid">{{ m.deprecated_technique_id }}</span>
+  <span class="reason">({{ m.reason }}{% if m.replacement_id %}, replaced by <code>{{ m.replacement_id }}</code>{% endif %})</span>
+</div>
+{% endfor %}
+{% endif %}
+</body></html>
