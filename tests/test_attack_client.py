@@ -140,3 +140,51 @@ def test_parse_technique_handles_missing_description() -> None:
     assert parsed is not None
     assert parsed.technique_id == "T9999"
     assert parsed.description is None
+
+
+def test_parse_technique_populates_parent_id_for_subtechnique() -> None:
+    """A sub-technique's parent_id is derived from its technique_id."""
+    from types import SimpleNamespace
+
+    from detect_forge.stale.attack_client import _parse_technique
+
+    stix = SimpleNamespace(
+        id="attack-pattern--abc",
+        name="PowerShell",
+        description="...",
+        modified=__import__("datetime").datetime.now(__import__("datetime").UTC),
+        x_mitre_is_subtechnique=True,
+        x_mitre_deprecated=False,
+        revoked=False,
+        external_references=[
+            {"source_name": "mitre-attack", "external_id": "T1059.001"}
+        ],
+        kill_chain_phases=[],
+    )
+    t = _parse_technique(stix)
+    assert t is not None
+    assert t.parent_id == "T1059"
+
+
+def test_parse_technique_parent_id_none_for_parent_technique() -> None:
+    """A parent technique has parent_id=None."""
+    from types import SimpleNamespace
+
+    from detect_forge.stale.attack_client import _parse_technique
+
+    stix = SimpleNamespace(
+        id="attack-pattern--abc",
+        name="Command and Scripting Interpreter",
+        description="...",
+        modified=__import__("datetime").datetime.now(__import__("datetime").UTC),
+        x_mitre_is_subtechnique=False,
+        x_mitre_deprecated=False,
+        revoked=False,
+        external_references=[
+            {"source_name": "mitre-attack", "external_id": "T1059"}
+        ],
+        kill_chain_phases=[],
+    )
+    t = _parse_technique(stix)
+    assert t is not None
+    assert t.parent_id is None

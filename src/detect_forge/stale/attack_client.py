@@ -54,16 +54,22 @@ def _parse_technique(stix_obj: Any) -> AttackTechnique | None:
         if getattr(phase, "kill_chain_name", None) == "mitre-attack"
     ]
 
+    is_sub = getattr(stix_obj, "x_mitre_is_subtechnique", False)
+    parent_id = technique_id.split(".")[0] if is_sub and "." in technique_id else None
+
     return AttackTechnique(
         technique_id=technique_id,
         name=stix_obj.name,
         description=getattr(stix_obj, "description", None),
         modified=modified,
-        is_subtechnique=getattr(stix_obj, "x_mitre_is_subtechnique", False),
+        is_subtechnique=is_sub,
         deprecated=getattr(stix_obj, "x_mitre_deprecated", False),
         revoked=getattr(stix_obj, "revoked", False),
         tactic_ids=tactic_ids,
         stix_id=stix_obj.id,
+        parent_id=parent_id,
+        # replacement_id is populated in build_index via STIX revoked-by relationships
+        # (the per-technique STIX object doesn't carry the link target).
     )
 
 
@@ -121,6 +127,25 @@ def build_index(
             )
             continue
         techniques[parsed.technique_id] = parsed
+
+    # ---- Populate replacement_id for revoked techniques ----
+    # The installed mitreattack-python exposes `get_revoking_object(stix_id)` (not
+    # `get_revoked_by` as the original plan suggested). It returns the replacement
+    # STIX object for a revoked one, or None. Only called for revoked techniques
+    # (typically <30 per domain).
+    for tid, tech in list(techniques.items()):
+        if not tech.revoked:
+            continue
+        try:
+            replacement_stix = attack_data.get_revoking_object(tech.stix_id)
+        except (AttributeError, KeyError, ValueError):
+            replacement_stix = None
+        if replacement_stix is None:
+            continue
+        replacement_tid = _extract_technique_id(replacement_stix)
+        if replacement_tid:
+            # Replace in-place via model_copy so we don't mutate the existing instance.
+            techniques[tid] = tech.model_copy(update={"replacement_id": replacement_tid})
 
     log.info("Loaded %d ATT&CK techniques (%s)", len(techniques), domain)
 
