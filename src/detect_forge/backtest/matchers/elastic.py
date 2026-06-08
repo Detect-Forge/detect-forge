@@ -53,7 +53,14 @@ class ElasticMatcher:
         if language == "esql":
             return False, "ES|QL matcher deferred to v0.2"
         if language in ("kuery", "kql"):
-            return False, "KQL matcher pending Task 9"
+            from ._kql import KqlUnsupported, parse_kql
+
+            query = rule_block.get("query", "")
+            try:
+                parse_kql(query)
+            except KqlUnsupported as exc:
+                return False, f"KQL: {exc}"
+            return True, None
         if language != "eql":
             return False, f"Unsupported Elastic language: {language!r}"
 
@@ -71,12 +78,15 @@ class ElasticMatcher:
         events: list[dict[str, Any]],
         dataset_id: str,
     ) -> list[FireRecord]:
-        """Evaluate the EQL query against *events* and return fire records.
+        """Evaluate the rule query against *events* and return fire records.
 
         Each ``FireRecord.event_index`` is the position (0-based) of the
         **closing event** of the match in the input list — for a simple
         ``where`` query this is the matching event itself; for a sequence
         query it is the last event of the matched sequence.
+
+        Dispatches by ``language``: ``eql`` → EQL engine, ``kuery``/``kql``
+        → KQL evaluator, others → empty list.
 
         Returns an empty list when the rule is not supported or produces no
         matches.
@@ -87,9 +97,30 @@ class ElasticMatcher:
         assert rule.raw_toml is not None  # guarded by supports()
         parsed_toml = tomllib.loads(rule.raw_toml)
         rule_block = parsed_toml.get("rule", {})
-        query_text = rule_block.get("query", "").strip()
+        language = rule_block.get("language", "").lower()
+        query = rule_block.get("query", "").strip()
 
-        parsed_query = eql.parse_query(query_text)
+        if language == "eql":
+            return self._match_eql(rule, query, events, dataset_id)
+        if language in ("kuery", "kql"):
+            return self._match_kql(rule, query, events, dataset_id)
+        log.warning(
+            "ElasticMatcher.match() received unsupported language %r for rule %s; "
+            "this should have been caught by support_reason().",
+            language,
+            rule.rule_id or rule.title,
+        )
+        return []
+
+    def _match_eql(
+        self,
+        rule: DetectionRule,
+        query: str,
+        events: list[dict[str, Any]],
+        dataset_id: str,
+    ) -> list[FireRecord]:
+        """Evaluate an EQL query against *events* using the eql Python library."""
+        parsed_query = eql.parse_query(query)
 
         fires: list[FireRecord] = []
 
@@ -124,6 +155,30 @@ class ElasticMatcher:
             engine.stream_event(eql.Event(event_type, idx, evt))
 
         engine.finalize()
+        return fires
+
+    def _match_kql(
+        self,
+        rule: DetectionRule,
+        query: str,
+        events: list[dict[str, Any]],
+        dataset_id: str,
+    ) -> list[FireRecord]:
+        """Evaluate a KQL/kuery query against *events* using the custom evaluator."""
+        from ._kql import evaluate, parse_kql
+
+        node = parse_kql(query)
+        fires: list[FireRecord] = []
+        for idx, event in enumerate(events):
+            if evaluate(node, event):
+                fires.append(
+                    FireRecord(
+                        rule_id=rule.rule_id or rule.title,
+                        technique_id=(rule.technique_ids[0] if rule.technique_ids else ""),
+                        dataset_id=dataset_id,
+                        event_index=idx,
+                    )
+                )
         return fires
 
 
