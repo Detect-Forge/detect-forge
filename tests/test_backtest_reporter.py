@@ -149,3 +149,43 @@ def test_json_render_unknown_format_raises() -> None:
     from detect_forge.backtest.reporter import render
     with pytest.raises(ValueError, match="unknown output_format"):
         render(_make_report(), output_format="ascii-art")
+
+
+def test_html_render_includes_doctype_and_title() -> None:
+    from detect_forge.backtest.reporter import render
+    out = render(_make_report(), output_format="html")
+    assert "<!DOCTYPE html>" in out
+    assert "Detect-Forge Backtest Report" in out
+
+
+def test_html_render_summary_stat_cards() -> None:
+    from detect_forge.backtest.reporter import render
+    out = render(_make_report(rules_silent_on_all=2), output_format="html")
+    assert "Silent on all" in out or "silent_on_all" in out
+    assert "2" in out
+
+
+def test_html_render_silent_rule_cards() -> None:
+    from detect_forge.backtest.models import RuleResult
+    from detect_forge.backtest.reporter import render
+    rr = RuleResult(
+        rule_id="r1", rule_title="Broken",
+        source_file=Path("/r/broken.yml"),
+        rule_format="sigma", status="silent_on_all",
+    )
+    out = render(_make_report(rule_results=[rr], rules_silent_on_all=1), output_format="html")
+    assert "Broken" in out or "broken.yml" in out
+
+
+def test_html_render_unsupported_section_when_present() -> None:
+    from detect_forge.backtest.models import RuleResult
+    from detect_forge.backtest.reporter import render
+    rr = RuleResult(
+        rule_id="r1", rule_title="x",
+        source_file=Path("/r.toml"),
+        rule_format="elastic", status="unsupported",
+        unsupported_reason="ES|QL",
+    )
+    out = render(_make_report(rule_results=[rr]), output_format="html")
+    assert "Unsupported" in out
+    assert "ES|QL" in out or "ES&#124;QL" in out

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from io import StringIO
 
+from jinja2 import Environment, PackageLoader
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -23,10 +24,25 @@ def render(report: BacktestReport, output_format: str = "terminal") -> str:
         return _render_terminal(report)
     if output_format == "json":
         return report.model_dump_json(indent=2)
+    if output_format == "html":
+        return _render_html(report)
     raise ValueError(
         f"unknown output_format: {output_format!r}. "
         f"Valid values will be: terminal, json, html, navigator. "
-        f"Only 'terminal' and 'json' are implemented in this commit."
+        f"Only 'terminal', 'json', and 'html' are implemented in this commit."
+    )
+
+
+def _render_html(report: BacktestReport) -> str:
+    env = Environment(
+        loader=PackageLoader("detect_forge.backtest", "templates"),
+        autoescape=True,
+    )
+    template = env.get_template("report.html.j2")
+    return template.render(
+        summary=report.summary,
+        rule_results=report.rule_results,
+        technique_rollups=report.technique_rollups,
     )
 
 
