@@ -26,7 +26,7 @@ from ..models import FireRecord
 log = logging.getLogger(__name__)
 
 _UNSUPPORTED_MODIFIERS = {"cidr", "gt", "lt", "gte", "lte"}
-_SUPPORTED_MODIFIERS = {"contains", "startswith", "endswith", "re"}
+_SUPPORTED_MODIFIERS = {"contains", "startswith", "endswith", "re", "all"}
 _SUPPORTED_CORRELATION_TYPES = {
     "event_count",
     "value_count",
@@ -74,11 +74,12 @@ class SigmaMatcher:
             if isinstance(sel_value, dict):
                 for field_key in sel_value:
                     if "|" in field_key:
-                        modifier = field_key.split("|", 1)[1]
-                        if modifier in _UNSUPPORTED_MODIFIERS:
-                            return False, f"Sigma uses unsupported modifier: |{modifier}"
-                        if modifier not in _SUPPORTED_MODIFIERS:
-                            return False, f"unsupported modifier: {modifier}"
+                        parts = field_key.split("|")[1:]
+                        for modifier in parts:
+                            if modifier in _UNSUPPORTED_MODIFIERS:
+                                return False, f"Sigma uses unsupported modifier: |{modifier}"
+                            if modifier not in _SUPPORTED_MODIFIERS:
+                                return False, f"unsupported modifier: {modifier}"
         return True, None
 
     def match(
@@ -314,12 +315,19 @@ def _parse_field_spec(field_spec: str) -> tuple[str, list[str]]:
 def _value_matches(actual: Any, value_spec: Any, modifiers: list[str]) -> bool:
     """Apply modifiers to compare actual (event value) against value_spec.
 
-    Modifiers in v0.1: contains, startswith, endswith, re. Other modifiers are
-    filtered out at supports(), so only these four can appear here.
-    List value_spec is OR'd.
+    Modifiers in v0.1: contains, startswith, endswith, re, all. The ``all``
+    modifier flips list-value semantics from OR (default) to AND — every
+    element of a list value_spec must match. Typically chained as e.g.
+    ``field|contains|all``. Other modifiers are filtered out at supports(),
+    so only these five can appear here.
+    List value_spec is OR'd by default; AND'd when ``all`` is in modifiers.
     """
+    use_all = "all" in modifiers
+    if use_all:
+        modifiers = [m for m in modifiers if m != "all"]
     if isinstance(value_spec, list):
-        return any(_value_matches(actual, v, modifiers) for v in value_spec)
+        check = all if use_all else any
+        return check(_value_matches(actual, v, modifiers) for v in value_spec)
     if actual is None:
         return False
     if not modifiers:
