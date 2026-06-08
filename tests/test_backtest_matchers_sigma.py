@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from detect_forge.stale.models import DetectionRule
 
@@ -143,14 +144,14 @@ detection:
     assert {f.event_index for f in fires} == {0, 1}
 
 
-def test_sigma_unsupported_fallback_for_correlations_at_this_task() -> None:
-    """Correlations are added in Task 7; in Task 5 they're unsupported."""
+def test_sigma_rejects_unknown_correlation_type() -> None:
+    """Unknown correlation types remain unsupported even after Task 7."""
     from detect_forge.backtest.matchers.sigma import SigmaMatcher
 
     rule_yaml = """
 title: corr
 correlation:
-    type: event_count
+    type: not_a_real_type
     rules:
         - some_rule
     timespan: 5m
@@ -287,3 +288,300 @@ detection:
     supports, reason = m.support_reason(rule)
     assert supports is False
     assert "base64" in (reason or "").lower() or "unsupported" in (reason or "").lower()
+
+
+def test_sigma_correlation_event_count_fires_above_threshold() -> None:
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: 6+ failed logins per user
+correlation:
+    type: event_count
+    rules:
+        - failed_login
+    group-by:
+        - User
+    timespan: 5m
+    condition:
+        gt: 5
+detection:
+    selection_failed_login:
+        EventID: 4625
+    condition: selection_failed_login
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    base = "2024-01-01T00:00:"
+    events = [
+        {"@timestamp": f"{base}{i:02}Z", "EventID": 4625, "User": "alice"}
+        for i in range(6)
+    ] + [
+        {"@timestamp": f"{base}06Z", "EventID": 4625, "User": "bob"},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    # alice trips on event 5 (6th occurrence in 5min). bob (only 1) doesn't.
+    assert len(fires) >= 1
+    assert all(f.event_index == 5 for f in fires)
+
+
+def test_sigma_correlation_event_count_does_not_fire_below_threshold() -> None:
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: gt-5
+correlation:
+    type: event_count
+    rules:
+        - failed_login
+    group-by:
+        - User
+    timespan: 5m
+    condition:
+        gt: 5
+detection:
+    selection_failed_login:
+        EventID: 4625
+    condition: selection_failed_login
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    events = [
+        {"@timestamp": f"2024-01-01T00:00:0{i}Z", "EventID": 4625, "User": "alice"}
+        for i in range(5)  # exactly 5; not > 5
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert fires == []
+
+
+def test_sigma_correlation_value_count_distinct() -> None:
+    """3+ distinct destination IPs from one source within 1 minute."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: port scan
+correlation:
+    type: value_count
+    rules:
+        - any_connection
+    group-by:
+        - SourceIP
+    timespan: 1m
+    condition:
+        field: DestinationIP
+        gte: 3
+detection:
+    selection_any_connection:
+        EventID: 5156
+    condition: selection_any_connection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    base = "2024-01-01T00:00:"
+    src = "10.0.0.1"
+    events = [
+        {"@timestamp": f"{base}00Z", "EventID": 5156, "SourceIP": src, "DestinationIP": "1.1.1.1"},
+        {"@timestamp": f"{base}10Z", "EventID": 5156, "SourceIP": src, "DestinationIP": "2.2.2.2"},
+        {"@timestamp": f"{base}20Z", "EventID": 5156, "SourceIP": src, "DestinationIP": "3.3.3.3"},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert len(fires) >= 1
+
+
+def test_sigma_correlation_temporal_any_order() -> None:
+    """Both referenced selections fire within the window (any order)."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: download then execute
+correlation:
+    type: temporal
+    rules:
+        - file_download
+        - process_exec
+    timespan: 5m
+detection:
+    selection_file_download:
+        EventID: 1003
+    selection_process_exec:
+        EventID: 1
+    condition: 1 of selection_*
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    base = "2024-01-01T00:0"
+    events = [
+        {"@timestamp": f"{base}0:00Z", "EventID": 1},
+        {"@timestamp": f"{base}0:30Z", "EventID": 1003},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert len(fires) >= 1
+
+
+def test_sigma_correlation_temporal_ordered_respects_order() -> None:
+    """Ordered: file_download must come BEFORE process_exec to fire."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: ordered chain
+correlation:
+    type: temporal_ordered
+    rules:
+        - file_download
+        - process_exec
+    timespan: 5m
+detection:
+    selection_file_download:
+        EventID: 1003
+    selection_process_exec:
+        EventID: 1
+    condition: 1 of selection_*
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    base = "2024-01-01T00:0"
+    # Wrong order: process_exec first, then file_download.
+    bad_events = [
+        {"@timestamp": f"{base}0:00Z", "EventID": 1},
+        {"@timestamp": f"{base}0:30Z", "EventID": 1003},
+    ]
+    # Right order:
+    good_events = [
+        {"@timestamp": f"{base}0:00Z", "EventID": 1003},
+        {"@timestamp": f"{base}0:30Z", "EventID": 1},
+    ]
+    m = SigmaMatcher()
+    assert m.match(rule, bad_events, "ds1") == []
+    assert len(m.match(rule, good_events, "ds1")) >= 1
+
+
+def test_sigma_correlation_respects_timespan_boundary() -> None:
+    """Events outside the timespan don't count toward the threshold."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: 6+ in 1m
+correlation:
+    type: event_count
+    rules:
+        - any
+    group-by:
+        - User
+    timespan: 1m
+    condition:
+        gt: 5
+detection:
+    selection_any:
+        EventID: 4625
+    condition: selection_any
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    # 6 events but spread over 2 minutes (only ~3 within any 1-min window).
+    events = [
+        {"@timestamp": f"2024-01-01T00:0{i//3}:0{(i%3)*20}Z", "EventID": 4625, "User": "alice"}
+        for i in range(6)
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert fires == []
+
+
+def test_sigma_correlation_timespan_accepts_uppercase() -> None:
+    """timespan: 5M (uppercase) parses the same as 5m."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: 6+ in 5M (upper)
+correlation:
+    type: event_count
+    rules:
+        - failed_login
+    group-by:
+        - User
+    timespan: 5M
+    condition:
+        gt: 5
+detection:
+    selection_failed_login:
+        EventID: 4625
+    condition: selection_failed_login
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    events = [
+        {"@timestamp": f"2024-01-01T00:00:{i:02}Z", "EventID": 4625, "User": "alice"}
+        for i in range(6)
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert len(fires) >= 1  # 5M parsed as 300s, all 6 events fall in window
+
+
+def test_sigma_correlation_warns_on_unresolved_rule_reference(
+    caplog: Any,
+) -> None:
+    """Unresolved rule references log a warning and produce zero fires."""
+    import logging
+
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: bad ref
+correlation:
+    type: event_count
+    rules:
+        - nonexistent
+    group-by:
+        - User
+    timespan: 5m
+    condition:
+        gt: 5
+detection:
+    selection_failed_login:
+        EventID: 4625
+    condition: selection_failed_login
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    events = [
+        {"@timestamp": f"2024-01-01T00:00:{i:02}Z", "EventID": 4625, "User": "alice"}
+        for i in range(6)
+    ]
+    m = SigmaMatcher()
+    with caplog.at_level(logging.WARNING):
+        fires = m.match(rule, events, "ds1")
+    assert fires == []
+    assert any(
+        "nonexistent" in record.message and "selection_nonexistent" in record.message
+        for record in caplog.records
+    )
+
+
+def test_sigma_correlation_value_count_dedupes_duplicates() -> None:
+    """3 events with only 2 distinct DestinationIPs don't trip gte: 3."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: port scan
+correlation:
+    type: value_count
+    rules:
+        - any_connection
+    group-by:
+        - SourceIP
+    timespan: 1m
+    condition:
+        field: DestinationIP
+        gte: 3
+detection:
+    selection_any_connection:
+        EventID: 5156
+    condition: selection_any_connection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    base = "2024-01-01T00:00:"
+    src = "10.0.0.1"
+    events = [
+        {"@timestamp": f"{base}00Z", "EventID": 5156, "SourceIP": src, "DestinationIP": "1.1.1.1"},
+        {"@timestamp": f"{base}10Z", "EventID": 5156, "SourceIP": src, "DestinationIP": "1.1.1.1"},
+        {"@timestamp": f"{base}20Z", "EventID": 5156, "SourceIP": src, "DestinationIP": "2.2.2.2"},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert fires == []  # only 2 distinct DestinationIPs → below gte: 3
