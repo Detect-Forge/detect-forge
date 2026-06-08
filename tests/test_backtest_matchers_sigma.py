@@ -553,6 +553,78 @@ detection:
     )
 
 
+def test_sigma_supports_contains_all_modifier() -> None:
+    """Sigma rule using |contains|all must report supported."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: contains-all
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'EncodedCommand'
+            - 'powershell'
+    condition: selection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    m = SigmaMatcher()
+    assert m.supports(rule) is True
+
+
+def test_sigma_contains_all_fires_when_all_values_match() -> None:
+    """All values in the list must be present (AND, not OR)."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: contains-all
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'EncodedCommand'
+            - 'powershell'
+    condition: selection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    events = [
+        # Has both strings → fires
+        {"CommandLine": "powershell.exe -EncodedCommand AABB=="},
+        # Has only one of the two → does NOT fire under |all
+        {"CommandLine": "powershell.exe -Command Get-Process"},
+        # Has neither → does not fire
+        {"CommandLine": "cmd.exe /c whoami"},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert {f.event_index for f in fires} == {0}
+
+
+def test_sigma_contains_all_silent_when_one_value_missing() -> None:
+    """Specifically pin down that missing-one-of-N suppresses the fire."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: contains-all-strict
+detection:
+    selection:
+        Image|contains|all:
+            - ':\\Program Files\\Microsoft Office'
+            - '\\SkypeSrv\\'
+    condition: selection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    events = [
+        # Has only the first substring → no fire
+        {"Image": "C:\\Program Files\\Microsoft Office\\OUTLOOK.EXE"},
+        # Has only the second substring → no fire
+        {"Image": "C:\\OtherDir\\SkypeSrv\\SKYPESERVER.EXE"},
+        # Has both substrings → fires
+        {"Image": "C:\\Program Files\\Microsoft Office\\SkypeSrv\\SKYPESERVER.EXE"},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert {f.event_index for f in fires} == {2}
+
+
 def test_sigma_correlation_value_count_dedupes_duplicates() -> None:
     """3 events with only 2 distinct DestinationIPs don't trip gte: 3."""
     from detect_forge.backtest.matchers.sigma import SigmaMatcher
