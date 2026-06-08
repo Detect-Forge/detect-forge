@@ -189,3 +189,75 @@ def test_html_render_unsupported_section_when_present() -> None:
     out = render(_make_report(rule_results=[rr]), output_format="html")
     assert "Unsupported" in out
     assert "ES|QL" in out or "ES&#124;QL" in out
+
+
+def test_navigator_render_emits_required_top_level_keys() -> None:
+    import json
+
+    from detect_forge.backtest.reporter import render
+    out = render(_make_report(), output_format="navigator")
+    parsed = json.loads(out)
+    assert "domain" in parsed
+    assert "versions" in parsed
+    assert "techniques" in parsed
+    assert parsed["domain"] == "enterprise-attack"
+
+
+def test_navigator_render_maps_status_to_color() -> None:
+    import json
+
+    from detect_forge.backtest.models import TechniqueRollup
+    from detect_forge.backtest.reporter import render
+    verified = TechniqueRollup(
+        technique_id="T1059.001", technique_name="PS", status="verified",
+        rules_tagged=1, rules_fired=1, datasets_available=1,
+    )
+    silent = TechniqueRollup(
+        technique_id="T1059.002", technique_name="AS", status="silent",
+        rules_tagged=1, rules_fired=0, datasets_available=1,
+    )
+    untested = TechniqueRollup(
+        technique_id="T1059.003", technique_name="WC", status="untested",
+        rules_tagged=1, rules_fired=0, datasets_available=0,
+    )
+    priority_silent = TechniqueRollup(
+        technique_id="T1078", technique_name="VA", status="silent",
+        is_priority=True, rules_tagged=1, rules_fired=0, datasets_available=1,
+    )
+    rollups = [verified, silent, untested, priority_silent]
+    out = render(
+        _make_report(technique_rollups=rollups, priority_silent=1),
+        output_format="navigator",
+    )
+    parsed = json.loads(out)
+    by_id = {t["techniqueID"]: t for t in parsed["techniques"]}
+    assert by_id["T1059.001"]["color"] == "#4caf50"  # verified
+    assert by_id["T1059.002"]["color"] == "#f44336"  # silent
+    assert by_id["T1059.003"]["color"] == "#9e9e9e"  # untested
+    assert by_id["T1078"]["color"] == "#d32f2f"      # priority silent
+
+
+def test_navigator_render_includes_legend_items() -> None:
+    import json
+
+    from detect_forge.backtest.reporter import render
+    out = render(_make_report(), output_format="navigator")
+    parsed = json.loads(out)
+    labels = [item["label"] for item in parsed.get("legendItems", [])]
+    assert any("verified" in lbl.lower() for lbl in labels)
+    assert any("silent" in lbl.lower() for lbl in labels)
+
+
+def test_navigator_render_priority_untested_uses_distinct_gray() -> None:
+    import json
+
+    from detect_forge.backtest.models import TechniqueRollup
+    from detect_forge.backtest.reporter import render
+    pu = TechniqueRollup(
+        technique_id="T1078", technique_name="VA", status="untested",
+        is_priority=True, rules_tagged=1, rules_fired=0, datasets_available=0,
+    )
+    out = render(_make_report(technique_rollups=[pu]), output_format="navigator")
+    parsed = json.loads(out)
+    by_id = {t["techniqueID"]: t for t in parsed["techniques"]}
+    assert by_id["T1078"]["color"] == "#bdbdbd"
