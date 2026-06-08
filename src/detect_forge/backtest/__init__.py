@@ -80,11 +80,7 @@ def scan_backtest(
         cache_dir=cache_dir,
         ttl_hours=0 if no_cache else cache_ttl_hours,
     )
-    priority_ids = resolve_priority_techniques(
-        cli_path=priority_list,
-        config_path="",
-        start_dir=None,
-    )
+    priority_ids = resolve_priority_techniques(cli_path=priority_list)
 
     platform_filter: set[str] | None
     platform_filter = None if platform == "all" else {platform}

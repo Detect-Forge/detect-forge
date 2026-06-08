@@ -65,9 +65,5 @@ def scan_coverage(
         cache_dir=cache_dir,
         ttl_hours=0 if no_cache else cache_ttl_hours,
     )
-    priority_ids = resolve_priority_techniques(
-        cli_path=priority_list,
-        config_path="",
-        start_dir=None,
-    )
+    priority_ids = resolve_priority_techniques(cli_path=priority_list)
     return analyze_coverage(rules, index, priority_ids)

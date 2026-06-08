@@ -52,9 +52,7 @@ def test_resolve_priority_techniques_cli_override(tmp_path: Path) -> None:
     cli_file.write_text(
         '{"name": "cli", "technique_ids": ["T9999"]}'
     )
-    ids = resolve_priority_techniques(
-        cli_path=cli_file, config_path="", start_dir=None,
-    )
+    ids = resolve_priority_techniques(cli_path=cli_file)
     assert ids == {"T9999"}
 
 
@@ -66,9 +64,7 @@ def test_resolve_priority_techniques_config_when_no_cli(tmp_path: Path) -> None:
     cfg_file.write_text(
         '{"name": "cfg", "technique_ids": ["T8888"]}'
     )
-    ids = resolve_priority_techniques(
-        cli_path=None, config_path=str(cfg_file), start_dir=None,
-    )
+    ids = resolve_priority_techniques(cli_path=None, config_path=cfg_file)
     assert ids == {"T8888"}
 
 
@@ -76,9 +72,7 @@ def test_resolve_priority_techniques_builtin_when_no_cli_or_config() -> None:
     """When neither CLI nor config provides a path, the built-in default is used."""
     from detect_forge.coverage.priority import resolve_priority_techniques
 
-    ids = resolve_priority_techniques(
-        cli_path=None, config_path="", start_dir=None,
-    )
+    ids = resolve_priority_techniques(cli_path=None)
     # Built-in has at least 20 IDs (see ctid_top_techniques_2024.json).
     assert len(ids) >= 20
 
@@ -94,7 +88,15 @@ def test_resolve_priority_techniques_config_path_resolves_relative_to_cwd_when_s
     cfg_file.write_text(
         '{"name": "rel", "technique_ids": ["T7777"]}'
     )
-    ids = resolve_priority_techniques(
-        cli_path=None, config_path="rel.json", start_dir=None,
-    )
+    ids = resolve_priority_techniques(cli_path=None, config_path=Path("rel.json"))
     assert ids == {"T7777"}
+
+
+def test_resolve_priority_techniques_explicit_none_returns_builtin() -> None:
+    """Passing config_path=None explicitly returns the built-in priority list."""
+    from detect_forge.coverage.priority import resolve_priority_techniques
+
+    ids = resolve_priority_techniques(cli_path=None, config_path=None)
+    assert isinstance(ids, set)
+    # Built-in list is non-empty (ships with CTID top-25)
+    assert len(ids) > 0
