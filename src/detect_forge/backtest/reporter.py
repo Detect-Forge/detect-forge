@@ -21,10 +21,12 @@ from .models import BacktestReport
 def render(report: BacktestReport, output_format: str = "terminal") -> str:
     if output_format == "terminal":
         return _render_terminal(report)
+    if output_format == "json":
+        return report.model_dump_json(indent=2)
     raise ValueError(
         f"unknown output_format: {output_format!r}. "
         f"Valid values will be: terminal, json, html, navigator. "
-        f"Only 'terminal' is implemented in this commit."
+        f"Only 'terminal' and 'json' are implemented in this commit."
     )
 
 

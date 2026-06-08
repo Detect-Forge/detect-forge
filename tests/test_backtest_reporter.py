@@ -115,3 +115,37 @@ def test_terminal_render_unsupported_section() -> None:
     out = render(_make_report(rule_results=[rr]), output_format="terminal")
     assert "Unsupported" in out or "unsupported" in out.lower()
     assert "ES|QL" in out or "esql" in out.lower()
+
+
+def test_json_render_is_valid_json_with_required_keys() -> None:
+    import json
+
+    from detect_forge.backtest.reporter import render
+    out = render(_make_report(), output_format="json")
+    parsed = json.loads(out)
+    assert "summary" in parsed
+    assert "rule_results" in parsed
+    assert "technique_rollups" in parsed
+    assert parsed["summary"]["attack_domain"] == "enterprise-attack"
+
+
+def test_json_render_includes_rule_status_details() -> None:
+    import json
+
+    from detect_forge.backtest.models import RuleResult
+    from detect_forge.backtest.reporter import render
+    rr = RuleResult(
+        rule_id="r1", rule_title="x", source_file=Path("/r.yml"),
+        rule_format="sigma", status="silent_on_all",
+    )
+    out = render(_make_report(rule_results=[rr], rules_silent_on_all=1), output_format="json")
+    parsed = json.loads(out)
+    assert parsed["rule_results"][0]["status"] == "silent_on_all"
+
+
+def test_json_render_unknown_format_raises() -> None:
+    import pytest
+
+    from detect_forge.backtest.reporter import render
+    with pytest.raises(ValueError, match="unknown output_format"):
+        render(_make_report(), output_format="ascii-art")
