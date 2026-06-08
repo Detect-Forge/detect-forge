@@ -69,27 +69,27 @@ def load_builtin_priority_techniques() -> set[str]:
 def resolve_priority_techniques(
     *,
     cli_path: Path | None,
-    config_path: str,
-    start_dir: Path | None,
+    config_path: Path | None = None,
+    start_dir: Path | None = None,
 ) -> set[str]:
     """Resolve the priority list using the documented precedence.
 
     Args:
         cli_path: Path passed via ``--priority-list`` (highest precedence).
-        config_path: The ``[coverage] priority_list`` value from
-            ``.detect-forge.toml`` (empty string means "no override").
+        config_path: Path from ``[coverage] priority_list`` in
+            ``.detect-forge.toml``. ``None`` means "no override".
         start_dir: Directory to resolve relative ``config_path`` against. When
             ``None``, uses ``Path.cwd()``.
     """
     if cli_path is not None:
         log.debug("Priority list source: CLI --priority-list (%s)", cli_path)
         return load_priority_techniques(cli_path)
-    if config_path:
+    if config_path is not None:
         base = start_dir if start_dir is not None else Path.cwd()
         resolved = (
             (base / config_path).resolve()
-            if not Path(config_path).is_absolute()
-            else Path(config_path)
+            if not config_path.is_absolute()
+            else config_path
         )
         log.debug("Priority list source: .detect-forge.toml (%s)", resolved)
         return load_priority_techniques(resolved)
