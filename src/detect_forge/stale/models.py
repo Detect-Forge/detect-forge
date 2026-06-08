@@ -72,6 +72,9 @@ class DetectionRule(BaseModel):
     """Raw YAML text for Sigma rules. Used by backtest matcher to access the
     full detection block including selection_* keys (pySigma's parsed form is
     lossy for some structural details). None for non-Sigma rules."""
+    raw_toml: str | None = None
+    """Raw TOML text for Elastic Detection Rules. Used by backtest matcher to
+    access query + language + type. None for non-Elastic rules."""
 
 
 SeverityLevel = Literal["critical", "high", "medium", "low", "info"]

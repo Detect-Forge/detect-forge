@@ -54,7 +54,8 @@ def parse_rule_file(path: Path) -> DetectionRule | None:
     parser doesn't read.
     """
     try:
-        raw = tomllib.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+        raw = tomllib.loads(text)
     except (tomllib.TOMLDecodeError, OSError) as exc:
         log.warning("Failed to read %s: %s", path, exc)
         return None
@@ -83,6 +84,7 @@ def parse_rule_file(path: Path) -> DetectionRule | None:
             technique_ids=technique_ids,
             source_file=path.resolve(),
             raw_tags=[],
+            raw_toml=text,
         )
     except ValidationError as exc:
         log.warning("Validation error parsing %s: %s", path, exc)
