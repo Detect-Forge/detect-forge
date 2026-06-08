@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from io import StringIO
 
+from jinja2 import Environment, PackageLoader
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -25,6 +26,8 @@ def render(report: AuditReport, output_format: str = "terminal") -> str:
         return _render_terminal(report)
     if output_format == "json":
         return report.model_dump_json(indent=2)
+    if output_format == "html":
+        return _render_html(report)
     if output_format == "navigator":
         raise ValueError(
             "audit does not support --format navigator in v0.1. "
@@ -129,3 +132,52 @@ def _render_subcommand_section(sr: AuditSubResult) -> str:
         from ..backtest.reporter import render as backtest_render
         return backtest_render(sr.backtest_report, output_format="terminal")
     return ""
+
+
+def _extract_body_content(full_html: str) -> str:
+    """Extract the inner <body>...</body> content for embedding.
+
+    Falls back to returning the full document if the markers are missing —
+    keeps the audit render robust against template drift in the subcommand
+    reporters.
+    """
+    start = full_html.find("<body>")
+    end = full_html.find("</body>")
+    if start == -1 or end == -1:
+        return full_html
+    return full_html[start + len("<body>"):end].strip()
+
+
+def _render_html(report: AuditReport) -> str:
+    env = Environment(
+        loader=PackageLoader("detect_forge.audit", "templates"),
+        autoescape=True,
+    )
+    template = env.get_template("report.html.j2")
+
+    # Render each ran subcommand's HTML to a body fragment.
+    sub_bodies: dict[str, str] = {}
+    for sr in report.sub_results:
+        if sr.status != "ran":
+            continue
+        if sr.subcommand == "stale" and sr.stale_report is not None:
+            from ..stale.reporter import render as stale_render
+            sub_bodies["stale"] = _extract_body_content(
+                stale_render(sr.stale_report, output_format="html")
+            )
+        elif sr.subcommand == "coverage" and sr.coverage_report is not None:
+            from ..coverage.reporter import render as coverage_render
+            sub_bodies["coverage"] = _extract_body_content(
+                coverage_render(sr.coverage_report, output_format="html")
+            )
+        elif sr.subcommand == "backtest" and sr.backtest_report is not None:
+            from ..backtest.reporter import render as backtest_render
+            sub_bodies["backtest"] = _extract_body_content(
+                backtest_render(sr.backtest_report, output_format="html")
+            )
+
+    return template.render(
+        summary=report.summary,
+        sub_results=report.sub_results,
+        sub_bodies=sub_bodies,
+    )

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Detect-Forge Audit Report — {{ summary.generated_at.date() }}</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 2rem auto; padding: 0 1rem; background: #0f1117; color: #e2e8f0; }
+  h1 { margin-bottom: 1rem; }
+  h2 { margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid #2d3748; padding-bottom: 0.5rem; }
+  .scores { background: #1e2333; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; display: flex; gap: 2rem; flex-wrap: wrap; }
+  .score { text-align: center; min-width: 180px; }
+  .score .value { font-size: 2rem; font-weight: bold; }
+  .score .label { font-size: 0.875rem; color: #a0aec0; }
+  .fires { color: #68d391; }
+  .silent { color: #fc8181; }
+  .none { color: #a0aec0; }
+  .meta { color: #a0aec0; font-size: 0.875rem; margin-bottom: 2rem; }
+  .gate-fired { background: #742a2a; color: #fc8181; padding: 0.75rem 1rem; border-radius: 6px; font-weight: bold; margin-bottom: 2rem; }
+  .gate-silent { background: #1a3a52; color: #90cdf4; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 2rem; }
+  .errored { background: #742a2a; color: #fc8181; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
+  .skipped { background: #2d3748; color: #a0aec0; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
+  details { background: #1e2333; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 1rem; }
+  details summary { cursor: pointer; font-size: 1.1rem; font-weight: bold; }
+  details > div.inline-section { margin-top: 1.5rem; }
+</style>
+</head>
+<body>
+<h1>Detect-Forge Audit Report</h1>
+
+<div class="scores">
+  <div class="score">
+    <div class="value {% if summary.stale_health is not none %}fires{% else %}none{% endif %}">
+      {% if summary.stale_health is not none %}{{ summary.stale_health }}%{% else %}—{% endif %}
+    </div>
+    <div class="label">Stale health</div>
+  </div>
+  <div class="score">
+    <div class="value {% if summary.coverage_completeness is not none %}fires{% else %}none{% endif %}">
+      {% if summary.coverage_completeness is not none %}{{ summary.coverage_completeness }}%{% else %}—{% endif %}
+    </div>
+    <div class="label">Coverage completeness</div>
+  </div>
+  <div class="score">
+    <div class="value {% if summary.backtest_verification_rate is not none %}fires{% else %}none{% endif %}">
+      {% if summary.backtest_verification_rate is not none %}{{ summary.backtest_verification_rate }}%{% else %}—{% endif %}
+    </div>
+    <div class="label">Backtest verification rate</div>
+  </div>
+</div>
+
+<p class="meta">
+  Rules scanned: <strong>{{ summary.rules_scanned }}</strong>
+  &middot; ATT&amp;CK domain: <strong>{{ summary.attack_domain }}</strong>
+  &middot; Generated: {{ summary.generated_at.strftime('%Y-%m-%d %H:%M UTC') }}
+  &middot; Elapsed: {{ '%.1f' % summary.elapsed_seconds }}s
+</p>
+
+{% if summary.audit_would_gate %}
+<div class="gate-fired">&#9888; AUDIT GATE FIRED — all enabled subcommands would have gated</div>
+{% else %}
+<div class="gate-silent">&#8505; AUDIT GATE NOT FIRED — strict-AND policy</div>
+{% endif %}
+
+{% for sr in sub_results %}
+<h2>{{ sr.subcommand|upper }}</h2>
+{% if sr.status == "errored" %}
+<div class="errored"><strong>Errored:</strong> {{ sr.error }}</div>
+{% elif sr.status == "skipped" %}
+<div class="skipped">Skipped (not in the enabled subcommands list)</div>
+{% else %}
+<details open>
+  <summary>{{ sr.subcommand|capitalize }} report ({{ sr.score }}{% if sr.score is not none %}%{% endif %}{% if sr.would_gate %} — would gate{% endif %})</summary>
+  <div class="inline-section">
+    {{ sub_bodies[sr.subcommand]|safe }}
+  </div>
+</details>
+{% endif %}
+{% endfor %}
+</body></html>
