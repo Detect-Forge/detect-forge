@@ -81,7 +81,7 @@ detection:
     selection_a:
         Image: 'powershell.exe'
     selection_b:
-        CommandLine: '-EncodedCommand'
+        CommandLine|contains: '-EncodedCommand'
     condition: all of selection_*
 """
     rule = _rule_from_yaml(rule_yaml)
@@ -165,3 +165,125 @@ detection:
     supports, reason = m.support_reason(rule)
     assert supports is False
     assert "correlation" in (reason or "").lower()
+
+
+def test_sigma_modifier_contains() -> None:
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: contains
+detection:
+    selection:
+        CommandLine|contains: 'EncodedCommand'
+    condition: selection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    events = [
+        {"CommandLine": "powershell -EncodedCommand AABB"},
+        {"CommandLine": "cmd /c whoami"},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert {f.event_index for f in fires} == {0}
+
+
+def test_sigma_modifier_startswith() -> None:
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: startswith
+detection:
+    selection:
+        Image|startswith: 'C:\\Windows\\System32'
+    condition: selection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    events = [
+        {"Image": "C:\\Windows\\System32\\notepad.exe"},
+        {"Image": "C:\\Temp\\evil.exe"},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert {f.event_index for f in fires} == {0}
+
+
+def test_sigma_modifier_endswith() -> None:
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: endswith
+detection:
+    selection:
+        Image|endswith: '\\powershell.exe'
+    condition: selection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    events = [
+        {"Image": "C:\\Windows\\System32\\powershell.exe"},
+        {"Image": "C:\\Windows\\System32\\notepad.exe"},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert {f.event_index for f in fires} == {0}
+
+
+def test_sigma_modifier_re() -> None:
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: re
+detection:
+    selection:
+        CommandLine|re: 'whoami.*.exe'
+    condition: selection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    events = [
+        {"CommandLine": "whoami /all .exe"},
+        {"CommandLine": "ls -la"},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert {f.event_index for f in fires} == {0}
+
+
+def test_sigma_modifier_endswith_with_list_value() -> None:
+    """Modifier + list value still ORs across the list."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: any
+detection:
+    selection:
+        Image|endswith:
+            - '\\powershell.exe'
+            - '\\cmd.exe'
+    condition: selection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    events = [
+        {"Image": "C:\\Windows\\System32\\cmd.exe"},
+        {"Image": "C:\\Windows\\System32\\notepad.exe"},
+        {"Image": "C:\\Windows\\System32\\powershell.exe"},
+    ]
+    m = SigmaMatcher()
+    fires = m.match(rule, events, "ds1")
+    assert {f.event_index for f in fires} == {0, 2}
+
+
+def test_sigma_rejects_unknown_modifier() -> None:
+    """Modifiers outside the supported allowlist must be rejected at supports()."""
+    from detect_forge.backtest.matchers.sigma import SigmaMatcher
+
+    rule_yaml = """
+title: unknown-modifier
+detection:
+    selection:
+        CommandLine|base64: 'cG93ZXJzaGVsbA=='
+    condition: selection
+"""
+    rule = _rule_from_yaml(rule_yaml)
+    m = SigmaMatcher()
+    supports, reason = m.support_reason(rule)
+    assert supports is False
+    assert "base64" in (reason or "").lower() or "unsupported" in (reason or "").lower()

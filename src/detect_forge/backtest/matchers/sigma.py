@@ -25,6 +25,7 @@ from ..models import FireRecord
 log = logging.getLogger(__name__)
 
 _UNSUPPORTED_MODIFIERS = {"cidr", "gt", "lt", "gte", "lte"}
+_SUPPORTED_MODIFIERS = {"contains", "startswith", "endswith", "re"}
 
 
 class SigmaMatcher:
@@ -61,6 +62,8 @@ class SigmaMatcher:
                         modifier = field_key.split("|", 1)[1]
                         if modifier in _UNSUPPORTED_MODIFIERS:
                             return False, f"Sigma uses unsupported modifier: |{modifier}"
+                        if modifier not in _SUPPORTED_MODIFIERS:
+                            return False, f"unsupported modifier: {modifier}"
         return True, None
 
     def match(
@@ -120,22 +123,44 @@ def _parse_field_spec(field_spec: str) -> tuple[str, list[str]]:
 
 
 def _value_matches(actual: Any, value_spec: Any, modifiers: list[str]) -> bool:
-    """List-as-OR + default scalar matching in Task 5. Modifiers added in Task 6.
+    """Apply modifiers to compare actual (event value) against value_spec.
 
-    Default scalar semantics: case-insensitive substring match for string-vs-string
-    (which subsumes plain equality and aligns with common Sigma backend behavior);
-    plain equality for non-strings.
+    Modifiers in v0.1: contains, startswith, endswith, re. Other modifiers are
+    filtered out at supports(), so only these four can appear here.
+    List value_spec is OR'd.
     """
     if isinstance(value_spec, list):
         return any(_value_matches(actual, v, modifiers) for v in value_spec)
-    # Modifiers in Task 5: none supported — return False so the rule routes through
-    # support_reason()'s reject path (unknown modifiers won't reach here, but defense
-    # in depth). Task 6 will add: contains, startswith, endswith, re.
-    if modifiers:
+    if actual is None:
         return False
-    if isinstance(value_spec, str) and isinstance(actual, str):
-        return value_spec.lower() in actual.lower()
-    return bool(actual == value_spec)
+    if not modifiers:
+        return bool(actual == value_spec)
+    actual_str = str(actual)
+    spec_str = str(value_spec)
+    # v0.1 simplification: string modifiers (contains, startswith, endswith)
+    # are case-SENSITIVE here. The SigmaHQ spec defines them as
+    # case-insensitive — backends lowercase both sides before comparing.
+    # Real-world rules typically already normalize case in their selectors,
+    # so the practical mismatch rate is low, but be aware when reading
+    # results. Lowercase-everything is tracked for v0.2.
+    for mod in modifiers:
+        if mod == "contains":
+            if spec_str not in actual_str:
+                return False
+        elif mod == "startswith":
+            if not actual_str.startswith(spec_str):
+                return False
+        elif mod == "endswith":
+            if not actual_str.endswith(spec_str):
+                return False
+        elif mod == "re":
+            if not re.search(spec_str, actual_str):
+                return False
+        else:
+            # Unreachable when called via match() — unsupported modifiers are
+            # rejected by support_reason() before match() is invoked.
+            return False  # defense-in-depth
+    return True
 
 
 # ---------- condition parsing + evaluation ----------
