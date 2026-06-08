@@ -45,15 +45,16 @@ def select_matcher(
     """Pick a matcher based on the rule's source-file suffix.
 
     Returns (None, 'sigma') for unknown formats; the orchestrator surfaces
-    those as ``unsupported``.
-
-    Note: actual matcher instances are wired up by the orchestrator (Task 10)
-    which imports SigmaMatcher and ElasticMatcher. This helper only routes
-    by format.
+    those as ``unsupported``. Imports are deferred to avoid module-load
+    cycles between this base and the concrete matcher implementations.
     """
     suffix = rule.source_file.suffix.lower()
     if suffix == ".toml":
-        return None, "elastic"  # ElasticMatcher injected by orchestrator
+        from .elastic import ElasticMatcher
+
+        return ElasticMatcher(), "elastic"
     if suffix in (".yml", ".yaml"):
-        return None, "sigma"
+        from .sigma import SigmaMatcher
+
+        return SigmaMatcher(), "sigma"
     return None, "sigma"
