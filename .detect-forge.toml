@@ -6,3 +6,9 @@ max_proposals = 5
 [coverage]
 priority_list = ""              # path to custom JSON; empty = built-in CTID default
 gate_on_priority_gaps = true    # exit 2 when priority techniques have no rules
+
+[backtest]
+gate_on_priority_silence = true   # exit 2 when priority technique is silent
+gate_on_broken_rules = true       # exit 2 when any rule is silent on all tested datasets
+mordor_source = ""                # local Security-Datasets checkout; empty = fetch
+platform = "all"                  # windows | linux | macos | all
