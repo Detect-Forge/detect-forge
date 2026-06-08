@@ -1,11 +1,14 @@
 """Config file loading for ``.detect-forge.toml``.
 
 Walks upward from the working directory until it finds a ``.detect-forge.toml``
-or hits a git-repo boundary (``.git`` marker), then loads the ``[stale]``
-section into a pydantic ``StaleConfig`` model.
+or hits a git-repo boundary (``.git`` marker), then loads each section into
+its dedicated pydantic config model.
 
-Per-subcommand config sections (``[backtest]``, ``[coverage]``, etc.) will be
-added in this module as those subcommands ship.
+Per-subcommand config sections (one per shipped subcommand):
+- ``[stale]`` → ``StaleConfig``
+- ``[coverage]`` → ``CoverageConfig``
+- ``[backtest]`` → ``BacktestConfig``
+- ``[audit]`` → ``AuditConfig``
 """
 
 from __future__ import annotations
@@ -56,6 +59,25 @@ class BacktestConfig(BaseModel):
     """Path to a local Security-Datasets checkout. Empty string means fetch on demand."""
     platform: Literal["windows", "linux", "macos", "all"] = "all"
     """Filter Mordor datasets by platform."""
+
+
+class AuditConfig(BaseModel):
+    """Settings for the ``audit`` subcommand sourced from ``[audit]`` in the config file."""
+
+    gate_strategy: Literal["all", "never"] = "all"
+    """When ``"all"`` (default), the audit gate fires only if EVERY enabled
+    subcommand would have gated. ``"never"`` is a full kill-switch
+    (informational only)."""
+
+    subcommands: list[Literal["stale", "coverage", "backtest"]] = [
+        "stale", "coverage", "backtest",
+    ]
+    """Which subcommands to compose. Subcommands not in this list are skipped.
+    Default: all 3."""
+
+    include_llm_proposals: bool = False
+    """Pass through to the stale subcommand: enable LLM diff proposals.
+    Default: off (cost gate). CLI flag ``--with-llm-proposals`` overrides."""
 
 
 def find_config_file(start: Path | None = None) -> Path | None:
@@ -150,3 +172,27 @@ def load_backtest_config_or_defaults(start: Path | None = None) -> BacktestConfi
     if path is None:
         return BacktestConfig()
     return load_backtest_config(path)
+
+
+def load_audit_config(path: Path) -> AuditConfig:
+    """Parse a ``.detect-forge.toml`` file and return the validated AuditConfig.
+
+    Missing ``[audit]`` section is fine — returns defaults. Invalid values
+    raise ``pydantic.ValidationError`` (subclass of ``ValueError``).
+    """
+    raw: dict[str, Any] = tomllib.loads(path.read_text(encoding="utf-8"))
+    audit_section = raw.get("audit", {})
+    if not isinstance(audit_section, dict):
+        audit_section = {}
+    return AuditConfig(**audit_section)
+
+
+def load_audit_config_or_defaults(start: Path | None = None) -> AuditConfig:
+    """Discover a ``.detect-forge.toml`` upward from ``start`` and load the [audit] section.
+
+    Returns a default ``AuditConfig`` when no file is found.
+    """
+    path = find_config_file(start)
+    if path is None:
+        return AuditConfig()
+    return load_audit_config(path)

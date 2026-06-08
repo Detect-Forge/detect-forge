@@ -25,13 +25,6 @@ def test_cti_ingest_stub_message_and_exit() -> None:
     assert "Q3" in stderr  # matches "Q3" or "Q3-Q4 2026"
 
 
-def test_audit_stub_message_and_exit() -> None:
-    code, _stdout, stderr = _invoke(["audit"])
-    assert code == RESERVED
-    assert "Reserved" in stderr
-    assert "runs every check" in stderr
-
-
 def test_main_help_lists_all_subcommands() -> None:
     code, stdout, _stderr = _invoke(["--help"])
     assert code == 0

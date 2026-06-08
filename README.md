@@ -16,6 +16,8 @@ Designed to run in GitHub Actions as a CI gate. No data leaves your environment.
 
 ## Status
 
+🚀 June 8, 2026 — `audit` ships: composes stale + coverage + backtest into a single CI step with strict-AND gate semantics, three per-dimension scores, and a unified report in terminal/json/html.
+
 🚀 May 29, 2026 — `backtest` ships with adversarial replay against bundled Mordor (Security-Datasets) corpus, Sigma matcher (selections + modifiers + correlations), Elastic matcher (EQL via `eql` Python lib + custom KQL evaluator), four output formats including ATT&CK Navigator layer JSON, and two CI gates (priority silence + broken rules).
 
 🚀 May 23, 2026 launch — `stale` ships with all three scoring dimensions: timestamp drift, semantic drift (Phase 3.a), and LLM diff proposals (Phase 4). True historical drift (Phase 3.b) deferred to v0.2. `coverage` ships with full/shallow/gap analysis, CTID-weighted priority gating, and ATT&CK Navigator export. Remaining subcommands (`cti ingest`, `audit`) are registered as stubs.
@@ -48,7 +50,7 @@ detect-forge stale path/to/rules
 | `backtest` | ✅ Available | Adversarial replay (Types 3 + 4). |
 | `coverage` | ✅ Available | Coverage gap mapping (Type 6a expansion). |
 | `cti ingest` | 📝 Q3–Q4 2026 | CTI-to-detection generation. |
-| `audit` | 📝 Reserved | Runs every check once 2+ subcommands ship. |
+| `audit` | ✅ Available | Runs every check (stale + coverage + backtest) in one step. |
 
 ### `stale` options
 
@@ -310,6 +312,93 @@ detect-forge backtest ./rules --techniques T1059.001,T1078
 - No backtest → coverage `verified` state integration.
 - No sandbox / execute mode (replay-only — no live detonation).
 - No detection latency / time-to-fire metrics.
+
+### Audit (one-step CI gate)
+
+`detect-forge audit` runs `stale` + `coverage` + `backtest` sequentially in a single
+Python session and emits a unified report. Honors the "One install, one config, one
+CI step" tagline:
+
+```bash
+detect-forge audit ./rules
+```
+
+#### Quick start (all formats)
+
+```bash
+detect-forge audit ./rules                                # terminal
+detect-forge audit ./rules --format json -o audit.json
+detect-forge audit ./rules --format html -o audit.html
+```
+
+Navigator output is NOT supported in v0.1 — run `coverage` or `backtest` directly
+for technique heatmaps.
+
+#### Three per-dimension scores
+
+The header surfaces three percentages (0–100, no composite):
+
+- **Stale health** = `100 × (total_rules − critical) / total_rules`
+- **Coverage completeness** = `100 × full / total_techniques`
+- **Backtest verification rate** = `100 × rules_fires / (rules_parsed − rules_unsupported)`
+
+Each score is `null` when the corresponding subcommand was skipped or errored.
+
+#### Strict-AND gate semantics
+
+The audit gate fires (exit code 2) only when **every enabled subcommand** would have
+gated standalone. This is intentionally permissive — fine-grained signal is best
+served by running each subcommand directly. Audit's gate is the "everything is
+broken" alarm.
+
+Override with `--no-gate` or set `[audit].gate_strategy = "never"` in config for
+informational mode (always exit 0/1).
+
+#### CI exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Clean OR audit gate didn't fire |
+| `1` | At least one subcommand crashed (tool error) |
+| `2` | Audit gate fired |
+
+#### Configuration (`.detect-forge.toml [audit]`)
+
+```toml
+[audit]
+gate_strategy = "all"             # "all" | "never"
+subcommands = ["stale", "coverage", "backtest"]  # subset to run
+include_llm_proposals = false     # cost gate
+```
+
+The existing `[stale]`, `[coverage]`, `[backtest]` sections continue to drive each
+subcommand's own config (semantic threshold, priority list path, mordor source,
+etc.). Audit just composes — it doesn't override per-subcommand config.
+
+#### Skip a subcommand for incremental adoption
+
+```bash
+detect-forge audit ./rules --skip stale --skip backtest   # only coverage
+```
+
+CLI `--skip` is subtractive from `[audit].subcommands`. If your config disables a
+subcommand and you `--skip` another, the effective set is the intersection.
+
+#### LLM proposals are off by default
+
+The `stale` subcommand's LLM diff proposals are skipped in audit mode unless you
+opt in via `--with-llm-proposals` or `[audit].include_llm_proposals = true`. This
+is a cost gate — every proposal call costs ~$0.0005 (defaults).
+
+#### What audit does NOT do (v0.1)
+
+- Doesn't merge findings across subcommands (no "verified" coverage state from
+  backtest, etc.)
+- Doesn't run subcommands in parallel
+- Doesn't emit a Navigator layer
+- Doesn't diff against a prior baseline
+- Doesn't propagate per-subcommand exit codes (audit summarizes; run subcommands
+  directly if you need their individual exit codes)
 
 ## Python API
 
