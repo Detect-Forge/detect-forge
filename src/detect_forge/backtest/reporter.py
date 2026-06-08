@@ -15,8 +15,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from .._tactics import lookup_tactic
 from ..console import theme
-from ..coverage._tactics import lookup_tactic
 from .models import BacktestReport
 
 _NAV_VERIFIED = "#4caf50"

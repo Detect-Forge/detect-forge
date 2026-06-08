@@ -11,8 +11,8 @@ import logging
 from collections import defaultdict
 from datetime import UTC, datetime
 
+from .._tactics import TACTIC_DISPLAY_ORDER, lookup_tactic
 from ..stale.models import AttackIndex, DetectionRule
-from ._tactics import TACTIC_DISPLAY_ORDER, lookup_tactic
 from .models import (
     CoverageReport,
     CoverageState,
