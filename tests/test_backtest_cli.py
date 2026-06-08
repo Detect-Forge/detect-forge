@@ -147,3 +147,23 @@ def test_cli_config_file_disables_priority_gate(
     runner = CliRunner()
     result = runner.invoke(main, ["backtest", str(empty_rule_dir)])
     assert result.exit_code == 0, result.stderr
+
+
+def test_cli_explicit_platform_all_overrides_config(
+    empty_rule_dir: Path, mocker: MockerFixture, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit --platform all overrides a [backtest].platform = "windows" config."""
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    cfg = tmp_path / ".detect-forge.toml"
+    cfg.write_text('[backtest]\nplatform = "windows"\n')
+    monkeypatch.chdir(tmp_path)
+    scan_mock = mocker.patch(
+        "detect_forge.backtest.scan_backtest", return_value=_fake_report(),
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["backtest", str(empty_rule_dir), "--platform", "all"],
+    )
+    assert result.exit_code == 0
+    assert scan_mock.call_args.kwargs["platform"] == "all"

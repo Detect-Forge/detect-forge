@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import click
+from click.core import ParameterSource
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from ..config import load_backtest_config_or_defaults
@@ -89,7 +90,8 @@ def backtest_cmd(
         gate_broken = False
 
     # Platform: CLI > config > default.
-    effective_platform = platform if platform != "all" else bt_cfg.platform
+    explicit_platform_cli = ctx.get_parameter_source("platform") == ParameterSource.COMMANDLINE
+    effective_platform = platform if explicit_platform_cli else (bt_cfg.platform or "all")
 
     # Mordor source: CLI > config > fetch.
     effective_mordor: Path | None = mordor_source
