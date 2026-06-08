@@ -17,8 +17,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from .._tactics import lookup_tactic
 from ..console import theme
-from ._tactics import lookup_tactic
 from .models import CoverageReport
 
 

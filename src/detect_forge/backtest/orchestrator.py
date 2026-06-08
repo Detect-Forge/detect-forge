@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from ..coverage._tactics import TACTIC_DISPLAY_ORDER
+from .._tactics import TACTIC_DISPLAY_ORDER
 from ..stale.models import AttackIndex, DetectionRule
 from .corpus import MordorCorpus
 from .matchers._base import select_matcher
