@@ -130,3 +130,74 @@ def test_select_matcher_routes_by_suffix(tmp_path) -> None:  # type: ignore[no-u
     _, fmt_elastic = select_matcher(elastic_rule)
     assert fmt_sigma == "sigma"
     assert fmt_elastic == "elastic"
+
+
+def test_public_api_exports_include_required_symbols() -> None:
+    from detect_forge import backtest
+
+    expected = {
+        "BacktestReport", "BacktestSummary",
+        "FireRecord", "FireStatus",
+        "RuleResult", "RuleStatus",
+        "TechniqueResult", "TechniqueRollup", "TechniqueStatus",
+        "scan_backtest",
+    }
+    assert expected.issubset(set(backtest.__all__))
+    for name in expected:
+        assert hasattr(backtest, name)
+
+
+def test_scan_backtest_signature_has_required_kwargs() -> None:
+    import inspect
+
+    from detect_forge.backtest import scan_backtest
+
+    params = inspect.signature(scan_backtest).parameters
+    for required in [
+        "rule_dir", "domain", "cache_dir", "cache_ttl_hours", "no_cache",
+        "priority_list", "platform", "technique_filter", "mordor_source",
+    ]:
+        assert required in params, f"missing kwarg: {required}"
+
+
+def test_scan_backtest_rejects_invalid_platform() -> None:
+    """Invalid platform values fail loud rather than silently producing zero fires."""
+    from detect_forge.backtest import scan_backtest
+
+    with pytest.raises(ValueError, match="platform must be one of"):
+        scan_backtest(Path("/nonexistent"), platform="freebsd")
+
+
+def test_scan_backtest_empty_rule_dir_returns_zero_report(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """An empty rule directory produces a valid BacktestReport with all-zero counters."""
+    from unittest.mock import patch
+
+    from detect_forge.backtest import scan_backtest
+
+    # Mock build_index and MordorCorpus to avoid network/IO. We use real
+    # parse_rule_dir, which returns [] for an empty directory, exercising the
+    # downstream orchestrator path.
+    with (
+        patch("detect_forge.backtest.build_index") as mock_build_index,
+        patch("detect_forge.backtest.MordorCorpus") as mock_corpus_cls,
+    ):
+        from datetime import UTC, datetime
+
+        from detect_forge.stale.models import AttackIndex
+
+        mock_build_index.return_value = AttackIndex(
+            techniques={}, fetched_at=datetime.now(UTC),
+        )
+        mock_corpus = mock_corpus_cls.return_value
+        mock_corpus.datasets_for.return_value = []
+        mock_corpus.datasets_consulted.return_value = 0
+        mock_corpus.source_label.return_value = "empty"
+
+        report = scan_backtest(tmp_path)
+
+    assert report.summary.rules_parsed == 0
+    assert report.summary.rules_fires == 0
+    assert report.summary.rules_silent_on_all == 0
+    assert report.summary.rules_untested == 0
+    assert report.rule_results == []
+    assert report.technique_rollups == []
