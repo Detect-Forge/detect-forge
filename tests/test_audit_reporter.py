@@ -104,3 +104,49 @@ def test_terminal_render_navigator_format_rejected_with_explicit_message() -> No
 
     with pytest.raises(ValueError, match="audit does not support"):
         render(_make_report(), output_format="navigator")
+
+
+def test_json_render_is_valid_json_with_required_keys() -> None:
+    import json
+
+    from detect_forge.audit.reporter import render
+
+    out = render(_make_report(), output_format="json")
+    parsed = json.loads(out)
+    assert "summary" in parsed
+    assert "sub_results" in parsed
+    assert parsed["summary"]["stale_health"] == 87
+    assert parsed["summary"]["coverage_completeness"] == 72
+    assert parsed["summary"]["backtest_verification_rate"] == 48
+    assert parsed["summary"]["attack_domain"] == "enterprise-attack"
+
+
+def test_json_render_nested_sub_reports_present() -> None:
+    """A 'ran' sub_result with an attached report serializes it nested."""
+    import json
+    from datetime import UTC, datetime
+
+    from detect_forge.audit.models import AuditSubResult
+    from detect_forge.audit.reporter import render
+    from detect_forge.coverage.models import CoverageReport, CoverageSummary
+
+    cov_summary = CoverageSummary(
+        total_techniques=10, full=8, shallow=0, gap=2,
+        priority_total=0, priority_full=0, priority_shallow=0, priority_gap=0,
+        rules_parsed=10, rules_with_unknown_tags=0, migrations_needed=0,
+        attack_domain="enterprise-attack",
+        attack_fetched_at=datetime.now(UTC),
+        generated_at=datetime.now(UTC),
+    )
+    sub_results = [
+        AuditSubResult(subcommand="stale", status="skipped"),
+        AuditSubResult(
+            subcommand="coverage", status="ran", would_gate=False, score=80,
+            coverage_report=CoverageReport(summary=cov_summary),
+        ),
+        AuditSubResult(subcommand="backtest", status="skipped"),
+    ]
+    audit = _make_report(sub_results=sub_results)
+    parsed = json.loads(render(audit, output_format="json"))
+    cov_entry = next(s for s in parsed["sub_results"] if s["subcommand"] == "coverage")
+    assert cov_entry["coverage_report"]["summary"]["full"] == 8

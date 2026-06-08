@@ -23,6 +23,8 @@ from .models import AuditReport, AuditSubResult
 def render(report: AuditReport, output_format: str = "terminal") -> str:
     if output_format == "terminal":
         return _render_terminal(report)
+    if output_format == "json":
+        return report.model_dump_json(indent=2)
     if output_format == "navigator":
         raise ValueError(
             "audit does not support --format navigator in v0.1. "
