@@ -16,7 +16,9 @@ Designed to run in GitHub Actions as a CI gate. No data leaves your environment.
 
 ## Status
 
-🚀 May 23, 2026 launch — `stale` ships with all three scoring dimensions: timestamp drift, semantic drift (Phase 3.a), and LLM diff proposals (Phase 4). True historical drift (Phase 3.b) deferred to v0.2. `coverage` ships with full/shallow/gap analysis, CTID-weighted priority gating, and ATT&CK Navigator export. Remaining subcommands (`backtest`, `cti ingest`, `audit`) are registered as stubs.
+🚀 May 29, 2026 — `backtest` ships with adversarial replay against bundled Mordor (Security-Datasets) corpus, Sigma matcher (selections + modifiers + correlations), Elastic matcher (EQL via `eql` Python lib + custom KQL evaluator), four output formats including ATT&CK Navigator layer JSON, and two CI gates (priority silence + broken rules).
+
+🚀 May 23, 2026 launch — `stale` ships with all three scoring dimensions: timestamp drift, semantic drift (Phase 3.a), and LLM diff proposals (Phase 4). True historical drift (Phase 3.b) deferred to v0.2. `coverage` ships with full/shallow/gap analysis, CTID-weighted priority gating, and ATT&CK Navigator export. Remaining subcommands (`cti ingest`, `audit`) are registered as stubs.
 
 ## Requirements
 
@@ -43,7 +45,7 @@ detect-forge stale path/to/rules
 | Command | Status | Description |
 |---|---|---|
 | `stale` | ✅ Available | Score detection rules for ATT&CK technique staleness. |
-| `backtest` | 📅 Jun 28, 2026 | Adversarial replay (Types 3 + 4). |
+| `backtest` | ✅ Available | Adversarial replay (Types 3 + 4). |
 | `coverage` | ✅ Available | Coverage gap mapping (Type 6a expansion). |
 | `cti ingest` | 📝 Q3–Q4 2026 | CTI-to-detection generation. |
 | `audit` | 📝 Reserved | Runs every check once 2+ subcommands ship. |
@@ -211,6 +213,103 @@ When any priority-list technique has gap status (no rules at all), the command e
 - No threat-intel weighting from `cti ingest` — composes with that subcommand when it ships.
 - No per-rule-status filtering (e.g. count only `status: stable` rules).
 - No rule-quality weighting (untested rule = same weight as a battle-tested one).
+
+### Backtest (Roberts Types 3+4 replay)
+
+`detect-forge backtest` replays your detection rules against bundled Mordor (Security-Datasets) samples to see which rules actually fire, which are silent on tested datasets, and which target techniques with no data at all.
+
+#### Quick start
+
+```bash
+detect-forge backtest ./rules
+detect-forge backtest ./rules --format json -o report.json
+detect-forge backtest ./rules --format html -o report.html
+detect-forge backtest ./rules --format navigator -o layer.json
+```
+
+The Navigator JSON output drops directly into https://mitre-attack.github.io/attack-navigator/ for a heatmap view coloured by fire status.
+
+#### Fire status model (per dataset)
+
+| Status | Meaning |
+|---|---|
+| **verified** | At least one event from this dataset matched the rule's detection logic. |
+| **silent** | Dataset was loaded and evaluated; rule produced zero matches. |
+| **untested** | No dataset found for this technique in the bundled Mordor index. |
+| **unsupported** | Rule format or query language not supported by any matcher. |
+
+#### Per-rule status model
+
+| Status | Meaning |
+|---|---|
+| **fires** | Rule fired on at least one dataset across all targeted techniques. |
+| **partial** | Rule fired on some datasets but was silent on others. |
+| **silent_on_all** | Rule was evaluated against ≥1 dataset and produced zero matches everywhere. |
+| **untested** | All targeted techniques had no Mordor data available. |
+| **unsupported** | No matcher could handle this rule's format/language. |
+
+#### Configuration (`.detect-forge.toml [backtest]`)
+
+```toml
+[backtest]
+gate_on_priority_silence = true   # exit 2 when priority technique is silent
+gate_on_broken_rules = true       # exit 2 when any rule is silent on all tested datasets
+mordor_source = ""                # local Security-Datasets checkout; empty = fetch
+platform = "all"                  # windows | linux | macos | all
+```
+
+#### Custom priority list
+
+Backtest reuses the same priority list format as `coverage`. Point at it via `[coverage] priority_list` or `--priority-list` — see the [Custom priority list](#custom-priority-list) section under Coverage.
+
+#### CI gating semantics
+
+Two independent gates can fail the CI pipeline (exit code `2`):
+
+- **Priority silence gate** (`gate_on_priority_silence`): triggers when a priority-list technique has at least one rule tagged to it, but none of those rules fire on any Mordor dataset. The technique is covered on paper but silent in replay — a signal worth investigating.
+- **Broken-rules gate** (`gate_on_broken_rules`): triggers when any rule is evaluated against at least one dataset and produces zero matches across all of them (`silent_on_all` status). These rules are candidates for revision or retirement.
+
+Both gates can be suppressed together with `--no-gate` for informational scans, or independently via config.
+
+#### Mordor source override
+
+By default, datasets are fetched from GitHub (Security-Datasets) on first use and cached locally. For airgapped environments or a local clone:
+
+```bash
+detect-forge backtest ./rules --mordor-source /path/to/Security-Datasets
+```
+
+Or set `mordor_source = "/path/to/Security-Datasets"` in `.detect-forge.toml`.
+
+#### Platform filter
+
+Limit evaluation to datasets matching a specific platform:
+
+```bash
+detect-forge backtest ./rules --platform windows
+detect-forge backtest ./rules --platform linux
+```
+
+Default is `all`. Available values: `windows`, `linux`, `macos`, `all`.
+
+#### Technique filter
+
+Restrict the scan to specific techniques (useful for targeted triage):
+
+```bash
+detect-forge backtest ./rules --techniques T1059.001,T1078
+```
+
+#### What backtest does NOT do (v0.1)
+
+- No ES|QL matcher — deferred to v0.2.
+- No Sigma `|cidr`, `|gt`, `|lt`, `|gte`, `|lte` modifiers.
+- No Sigma `keywords` (unfielded search).
+- No Mordor `compound/` datasets (multi-technique chains).
+- No per-rule TP/FP/FN matrix.
+- No backtest → coverage `verified` state integration.
+- No sandbox / execute mode (replay-only — no live detonation).
+- No detection latency / time-to-fire metrics.
 
 ## Python API
 

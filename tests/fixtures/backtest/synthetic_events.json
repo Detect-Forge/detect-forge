@@ -1,0 +1,5 @@
+[
+  {"@timestamp": "2024-01-01T00:00:00Z", "Image": "C:\\Windows\\System32\\powershell.exe", "CommandLine": "powershell -EncodedCommand AABB"},
+  {"@timestamp": "2024-01-01T00:00:01Z", "Image": "C:\\Windows\\System32\\cmd.exe", "CommandLine": "cmd /c whoami"},
+  {"@timestamp": "2024-01-01T00:00:02Z", "Image": "C:\\Windows\\System32\\notepad.exe", "CommandLine": "notepad"}
+]

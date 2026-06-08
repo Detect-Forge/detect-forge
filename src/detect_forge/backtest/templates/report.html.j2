@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Detect-Forge Backtest Report — {{ summary.generated_at.date() }}</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 2rem auto; padding: 0 1rem; background: #0f1117; color: #e2e8f0; }
+  h1 { margin-bottom: 1rem; }
+  h2 { margin-top: 2rem; margin-bottom: 1rem; }
+  .stats { background: #1e2333; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; display: flex; gap: 2rem; flex-wrap: wrap; }
+  .stat { text-align: center; }
+  .stat .value { font-size: 2rem; font-weight: bold; }
+  .stat .label { font-size: 0.875rem; color: #a0aec0; }
+  .fires { color: #68d391; }
+  .partial { color: #f6e05e; }
+  .silent { color: #fc8181; }
+  .priority-silent { color: #fc5050; font-weight: bold; }
+  .untested { color: #a0aec0; }
+  .unsupported { color: #bdbdbd; }
+  .meta { color: #a0aec0; font-size: 0.875rem; margin-bottom: 2rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  th { background: #1e2333; padding: 0.75rem; text-align: left; }
+  td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #2d3748; }
+  tr:hover { background: #1a2035; }
+  .gates-ci { background: #742a2a; color: #fc8181; padding: 4px 10px; border-radius: 4px; font-weight: bold; display: inline-block; margin-left: 1rem; }
+  .silent-card { background: #1e2333; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; border-left: 4px solid #fc8181; }
+  .silent-card .filename { font-weight: bold; color: #e2e8f0; }
+  .silent-card .format-badge { background: #2d3748; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; color: #a0aec0; margin-left: 0.5rem; }
+  .silent-card .techs { color: #fc8181; font-family: monospace; margin-top: 0.5rem; }
+  .unsupported-card { background: #1e2333; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; border-left: 4px solid #bdbdbd; }
+  .unsupported-card .reason { color: #bdbdbd; font-style: italic; margin-left: 1rem; }
+</style>
+</head>
+<body>
+<h1>Detect-Forge Backtest Report</h1>
+
+<div class="stats">
+  <div class="stat"><div class="value fires">{{ summary.rules_fires }}</div><div class="label">Fires</div></div>
+  <div class="stat"><div class="value partial">{{ summary.rules_partial }}</div><div class="label">Partial</div></div>
+  <div class="stat"><div class="value silent">{{ summary.rules_silent_on_all }}</div><div class="label">Silent on all{% if summary.rules_silent_on_all %} <span class="gates-ci">broken-rule gate</span>{% endif %}</div></div>
+  <div class="stat"><div class="value untested">{{ summary.rules_untested }}</div><div class="label">Untested</div></div>
+  <div class="stat"><div class="value unsupported">{{ summary.rules_unsupported }}</div><div class="label">Unsupported</div></div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="value">{{ summary.priority_total }}</div><div class="label">Priority total</div></div>
+  <div class="stat"><div class="value fires">{{ summary.priority_verified }}</div><div class="label">Priority verified</div></div>
+  <div class="stat"><div class="value priority-silent">{{ summary.priority_silent }}</div><div class="label">Priority silent{% if summary.priority_silent %} <span class="gates-ci">priority-silence gate</span>{% endif %}</div></div>
+  <div class="stat"><div class="value untested">{{ summary.priority_untested }}</div><div class="label">Priority untested</div></div>
+</div>
+
+<p class="meta">ATT&amp;CK domain: <strong>{{ summary.attack_domain }}</strong> &middot; Mordor source: {{ summary.mordor_source }} &middot; Generated: {{ summary.generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
+
+{% set silent_rules = rule_results | selectattr('status', 'equalto', 'silent_on_all') | list %}
+{% if silent_rules %}
+<h2>Silent-on-all rules</h2>
+{% for r in silent_rules %}
+<div class="silent-card">
+  <span class="filename">{{ r.source_file.name }}</span>
+  <span class="format-badge">{{ r.rule_format }}</span>
+  <div class="techs">{% for p in r.technique_results %}<code>{{ p.technique_id }}</code> {% endfor %}</div>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if technique_rollups %}
+<h2>Per-technique status</h2>
+<table>
+<thead><tr>
+  <th>Technique</th><th>Name</th><th>Rules tagged</th><th>Rules fired</th><th>Datasets</th>
+</tr></thead>
+<tbody>
+{% for t in technique_rollups %}
+<tr>
+  <td>{% if t.is_priority and t.status == 'silent' %}<span class="priority-silent">{{ t.technique_id }}</span>{% else %}{{ t.technique_id }}{% endif %}</td>
+  <td>{{ t.technique_name }}</td>
+  <td>{{ t.rules_tagged }}</td>
+  <td>{{ t.rules_fired }}</td>
+  <td>{{ t.datasets_available }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endif %}
+
+{% set unsupported = rule_results | selectattr('status', 'equalto', 'unsupported') | list %}
+{% if unsupported %}
+<h2>Unsupported rules (v0.1 limitation)</h2>
+{% for r in unsupported %}
+<div class="unsupported-card">
+  <code>{{ r.source_file.name }}</code><span class="reason">{{ r.unsupported_reason or 'unknown' }}</span>
+</div>
+{% endfor %}
+{% endif %}
+</body></html>

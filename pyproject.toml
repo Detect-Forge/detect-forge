@@ -21,6 +21,7 @@ dependencies = [
     "jinja2>=3.1",
     "fastembed>=0.4",
     "openai>=1.40",
+    "eql>=0.9",
 ]
 
 [project.urls]
@@ -48,6 +49,8 @@ include = [
     "src/detect_forge/stale/prompts/*",
     "src/detect_forge/coverage/templates/*",
     "src/detect_forge/coverage/priority_data/*.json",
+    "src/detect_forge/backtest/templates/*",
+    "src/detect_forge/backtest/corpus_data/*.json",
 ]
 
 [tool.ruff]
@@ -62,7 +65,7 @@ strict = true
 python_version = "3.12"
 
 [[tool.mypy.overrides]]
-module = ["mitreattack.*", "sigma.*", "requests_mock.*", "fastembed.*", "openai.*", "yaml.*"]
+module = ["mitreattack.*", "sigma.*", "requests_mock.*", "fastembed.*", "openai.*", "yaml.*", "eql.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
