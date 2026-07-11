@@ -443,3 +443,18 @@ src/detect_forge/
 ## License
 
 MIT
+
+---
+ 
+## Stay in the loop
+ 
+- 📧 **Newsletter** — subscribers get each tool's GitHub link 24 hours
+  before public launch → [Subscribe](https://james-bower.kit.com/newsletter)
+- 🎮 **Discord — Machine Learning in Security**
+  → [Join](https://james-bower.kit.com/mlsecdiscord)
+- 📝 **Deep dives on the design** → [jamesbower.com](https://jamesbower.com)
+---
+ 
+> Built by [James Bower](https://jamesbower.com) · ML cybersec with a
+> quant finance edge · [Newsletter](https://james-bower.kit.com/newsletter)
+> · [Discord](https://james-bower.kit.com/mlsecdiscord)
